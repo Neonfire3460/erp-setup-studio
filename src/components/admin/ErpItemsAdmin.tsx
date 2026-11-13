@@ -61,14 +61,19 @@ export function ErpItemsAdmin() {
       if (!items.length) throw new Error("No item rows found");
       if (!confirm(`Replace all ERP master data with ${items.length} items?`)) { setStatus(null); setBusy(false); return; }
 
-      setStatus("Deleting old rows...");
-      const del = await supabase.from("erp_items").delete().neq("item_code", "\u0000");
-      if (del.error) throw new Error(del.error.message);
+      const batchId = crypto.randomUUID();
       const chunk = 1000;
-      for (let i = 0; i < items.length; i += chunk) {
-        setStatus(`Saving ${Math.min(i + chunk, items.length)} of ${items.length}...`);
-        const ins = await supabase.from("erp_items").insert(items.slice(i, i + chunk));
-        if (ins.error) throw new Error(ins.error.message);
+      try {
+        for (let i = 0; i < items.length; i += chunk) {
+          setStatus(`Staging ${Math.min(i + chunk, items.length)} of ${items.length}...`);
+          const ins = await supabase.from("erp_items_staging").insert(items.slice(i, i + chunk).map(item => ({ ...item, batch_id: batchId })));
+          if (ins.error) throw new Error(ins.error.message);
+        }
+        setStatus("Replacing ERP master data...");
+        const swap = await supabase.rpc("replace_erp_items", { _batch_id: batchId, _expected_count: items.length });
+        if (swap.error) throw new Error(swap.error.message);
+      } finally {
+        await supabase.from("erp_items_staging").delete().eq("batch_id", batchId);
       }
       setStatus(`Done: ${items.length} items loaded.`);
       toast.success("ERP master data replaced");

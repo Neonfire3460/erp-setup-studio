@@ -1,6 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { BuildTool } from "@/components/BuildTool";
+import { buildOptions } from "@/lib/buildQueries";
 
 export const Route = createFileRoute("/_authenticated/build")({
+  loader: ({ context }) => context.queryClient.ensureQueryData(buildOptions),
   head: () => ({
     meta: [
       { title: "Build · NMK Pricelist to ERP" },
@@ -11,14 +14,5 @@ export const Route = createFileRoute("/_authenticated/build")({
       { name: "twitter:card", content: "summary" },
     ],
   }),
-  component: Page,
+  component: BuildTool,
 });
-
-function Page() {
-  return (
-    <div>
-      <h1 className="text-xl font-semibold">Build</h1>
-      <p className="mt-2 text-sm text-muted-foreground">Not built yet.</p>
-    </div>
-  );
-}

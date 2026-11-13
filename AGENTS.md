@@ -37,3 +37,6 @@ use the editor.
 - pricing_rules, pricing_rule_entities and export_audit are admin-only via RLS; normal users get rule info only through list_activities() (no numbers).
 - The first auth user becomes admin via the on_auth_user_created_role trigger; roles change via admin_set_role(), which refuses to remove the last admin.
 - reference/ERP-Upload-Template.xlsx is the reference for ERP output headers.
+- Build preview, export and pricing self-test share buildRows.server.ts; only whitelisted ERP columns and checks cross the server boundary, while audited exports are repriced and saved atomically.
+- ERP replacement stages each upload under its own admin-owned batch and swaps through a transaction-scoped database function; partial staging never changes the master.
+- Generate Excel files in the browser and prepare blobs before a download click to preserve browser user activation.

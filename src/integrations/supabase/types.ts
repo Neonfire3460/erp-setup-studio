@@ -98,6 +98,54 @@ export type Database = {
         }
         Relationships: []
       }
+      erp_items_staging: {
+        Row: {
+          b2b: string | null
+          batch_id: string
+          category_name: string | null
+          created_by: string
+          family_name: string | null
+          group_name: string | null
+          inactive: string | null
+          item_code: string
+          measurement_unit: string | null
+          midwich_family: string | null
+          refreshed_at: string
+          sub_category_name: string | null
+          webactive: string | null
+        }
+        Insert: {
+          b2b?: string | null
+          batch_id: string
+          category_name?: string | null
+          created_by?: string
+          family_name?: string | null
+          group_name?: string | null
+          inactive?: string | null
+          item_code: string
+          measurement_unit?: string | null
+          midwich_family?: string | null
+          refreshed_at?: string
+          sub_category_name?: string | null
+          webactive?: string | null
+        }
+        Update: {
+          b2b?: string | null
+          batch_id?: string
+          category_name?: string | null
+          created_by?: string
+          family_name?: string | null
+          group_name?: string | null
+          inactive?: string | null
+          item_code?: string
+          measurement_unit?: string | null
+          midwich_family?: string | null
+          refreshed_at?: string
+          sub_category_name?: string | null
+          webactive?: string | null
+        }
+        Relationships: []
+      }
       export_audit: {
         Row: {
           export_id: string
@@ -368,6 +416,20 @@ export type Database = {
           sub_activity: string
           vendor_currency: string
         }[]
+      }
+      replace_erp_items: {
+        Args: { _batch_id: string; _expected_count: number }
+        Returns: number
+      }
+      save_erp_export: {
+        Args: {
+          _entity_code: string
+          _rows: Json
+          _snapshot: Json
+          _upload_id: string
+          _user_id: string
+        }
+        Returns: string
       }
     }
     Enums: {

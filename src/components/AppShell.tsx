@@ -65,17 +65,17 @@ export function AppShell({ children }: { children: ReactNode }) {
             </SidebarMenu>
           </SidebarFooter>
         </Sidebar>
-        <div className="flex flex-1 flex-col">
+        <div className="flex min-w-0 flex-1 flex-col">
           <header className="flex h-12 items-center justify-between border-b px-2">
             <div className="flex items-center gap-2">
               <SidebarTrigger />
               <span className="text-sm font-medium">NMK Pricelist to ERP</span>
             </div>
-            <span className="text-sm text-muted-foreground">
+            <span className="max-w-48 truncate text-sm text-muted-foreground">
               {user.email} {isAdmin ? "(admin)" : ""}
             </span>
           </header>
-          <main className="flex-1 p-6">{children}</main>
+          <main className="min-w-0 flex-1 p-4 sm:p-6">{children}</main>
         </div>
       </div>
     </SidebarProvider>
