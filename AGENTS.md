@@ -28,3 +28,12 @@ use the editor.
   own key and store it in Secrets.
 - **Secrets.** Lovable manages them. Do not put secret values in the repo.
 <!-- LOVABLE:END -->
+
+## Project rules
+- docs/SPEC.md is the source of truth; build only the sections each prompt asks for.
+- src/lib/sheetParser.ts and src/server/pricing.server.ts are vendored verbatim from the spec; never change their logic (sheetParser only has a `// @ts-nocheck` header because the project's strict TS flags reject it).
+- Pricing maths lives only in src/server/pricing.server.ts; load it with `await import()` inside server-function handlers so it never enters the browser bundle (src/server/** is import-protected from client code).
+- Server functions live in src/lib/*.functions.ts (src/server/** cannot be imported by client code).
+- pricing_rules, pricing_rule_entities and export_audit are admin-only via RLS; normal users get rule info only through list_activities() (no numbers).
+- The first auth user becomes admin via the on_auth_user_created_role trigger; roles change via admin_set_role(), which refuses to remove the last admin.
+- reference/ERP-Upload-Template.xlsx is the reference for ERP output headers.
