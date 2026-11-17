@@ -23,7 +23,7 @@ export const runPricingSelfTest = createServerFn({ method: "POST" })
       const label = `${c.brand} / ${c.sub} / ${c.currency} · ${c.vendorPrice} · ${c.entity}`;
       try {
         const row = Object.fromEntries(INPUT_HEADERS.map(h => [h, null])) as import("./buildTypes").InputRow;
-        Object.assign(row, { "Item Code": "SELF-TEST", "Brand Activity": c.brand, "Sub Activity": c.sub, "Vendor Price": c.vendorPrice });
+        Object.assign(row, { "Item Code": "SELF-TEST", "Brand Activity": c.brand, "Sub Activity": c.sub, "Vendor Price": c.vendorPrice, "Local MSRP": c.localMsrp ?? null });
         const res = await buildRows(supabaseAdmin, { brand_activity: c.brand, vendor_currency: c.currency, entity_codes: [c.entity], rows: [row] });
         const columns = res.reviews[0]?.rows[0]?.columns;
         return { label, pass: columns?.["Cost Price"] === c.costPrice && columns?.["Retail Price"] === c.retailPrice };

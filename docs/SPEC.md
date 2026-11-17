@@ -28,9 +28,10 @@ Row level security on every table.
 | Table | Columns | Access |
 | --- | --- | --- |
 | `entities` | `code` (pk, text), `name`, `region`, `currency`, `sort_order` | read: signed in; write: admin |
-| `brands` | `brand_activity` (pk), `supplier` (text for the ERP Supplier column), `default_unit` (nullable) | read: signed in; write: admin |
+| `brands` | `brand_activity` (pk), `default_unit` (nullable) | read: signed in; write: admin |
+| `brand_suppliers` | `brand_activity`, `entity_code`, `supplier` (text for the ERP Supplier column). Pk (`brand_activity`, `entity_code`). The supplier code differs per entity | read: signed in; write: admin |
 | `pricing_rules` | `id`, `brand_activity`, `sub_activity`, `vendor_currency`, `cost_method` (`discount_from_msrp` or `net_price`), `discount_pct`, `margin_divisors` (numeric array), `max_discount_pct` (nullable), `is_test` (bool), `active` (bool), `updated_at`, `updated_by`. Unique on (`brand_activity`, `sub_activity`, `vendor_currency`) | **admin only**, read and write |
-| `pricing_rule_entities` | `rule_id`, `entity_code`, `ex_rate`, `overhead_pct`. Pk (`rule_id`, `entity_code`). No row means the rule is not available for that entity | **admin only** |
+| `pricing_rule_entities` | `rule_id`, `entity_code`, `ex_rate`, `overhead_pct`, `cost_basis` (`vendor_price` or `local_msrp`, default `vendor_price`), `retail_method` (`calculate` or `local_msrp`, default `calculate`), `round_to` (numeric, default 1). Pk (`rule_id`, `entity_code`). No row means the rule is not available for that entity | **admin only** |
 | `erp_items` | `item_code` (pk, stored trimmed and upper case), `family_name`, `group_name`, `category_name`, `sub_category_name`, `midwich_family`, `measurement_unit`, `inactive`, `webactive`, `b2b` (all text), `refreshed_at` | read: signed in; write: admin |
 | `vendor_profiles` | `id`, `brand_activity`, `header_signature`, `mapping` (json), `created_by`, `last_used_at` | read and write: signed in |
 | `uploads` | `id` (uuid, this is the batch id), `tool` (`convert` or `build`), `user_id`, `brand_activity`, `vendor_currency`, `file_name`, `file_path`, `mapping` (json), `ai_response` (json), `counts` (json), `detected_rows` (json), `created_at` | owner and admin |
@@ -72,12 +73,30 @@ Pricing rules. Format per entity is `ex_rate / overhead_pct`. A dash means no ro
 | Ampetronic | Ampetronic | GBP | net_price | 0 | 5.1 / 16 | 5.1 / 11 | 5.1 / 16 | 5.2 / 16 | 0.50 | false |
 | Ampetronic | Listen | GBP | net_price | 0 | 5.1 / 16 | 5.1 / 11 | 5.1 / 16 | 5.2 / 16 | 0.50 | false |
 | Ampetronic | Auri | GBP | net_price | 0 | 5.1 / 16 | 5.1 / 11 | 5.1 / 16 | 5.2 / 16 | 0.50 | false |
-| Lightware | Lightware | AED | discount_from_msrp | 40 | 1 / 10 | 1 / 5 | - | - | 0.60 | true |
-| Lightware | Lightware | USD | discount_from_msrp | 40 | - | - | 3.65 / 18 | 3.75 / 11 | 0.60 | true |
+| Lightware | Lightware | USD | discount_from_msrp | 40 | 1 / 0 | 3.675 / 0 | 3.65 / 11 | 3.75 / 5 | 0.60 | false |
+| Turtle AV | Turtle AV | USD | net_price | 0 | 3.675 / 10 | 3.675 / 5 | 3.65 / 15 | 3.75 / 15 | 0.50 | false |
+
+All entity rows use `cost_basis` = `vendor_price`, `retail_method` = `calculate`, `round_to` = 1, EXCEPT Lightware:
+
+| Lightware entity | cost_basis | retail_method | round_to |
+| --- | --- | --- | --- |
+| 001 | local_msrp | local_msrp | 1 |
+| 011 | vendor_price | local_msrp | 1 |
+| 007 | vendor_price | calculate | 100 |
+| 008 | vendor_price | calculate | 100 |
+
+Lightware and Turtle AV have `max_discount_pct` = 25. These two rules were derived from NMK's real Lightware and Turtle AV ERP upload files and reproduce every row of them.
 
 One more test rule for South East Asia: `DTEN / DTEN / USD / net_price / 0`, margin_divisors `0.70`, is_test true, entities `012: 1.35 / 10`, `013: 4.70 / 10`, `014: 16000 / 10`.
 
-Brands: one row per brand_activity above, `supplier` = `TO SET`, `default_unit` empty. Rows marked `is_test` show a "TEST" badge in the admin screen.
+Brands: one row per brand_activity above, `default_unit` empty, except Turtle AV `default_unit` = `pc`. Rows marked `is_test` show a "TEST" badge in the admin screen.
+
+Brand suppliers (all other brand and entity pairs: `TO SET`):
+
+| brand_activity | 001 | 011 | 007 | 008 |
+| --- | --- | --- | --- | --- |
+| Lightware | SUP101045 | SUP100611 | SUP000160 | SUP002398 |
+| Turtle AV | SUP101021 | SUP000077 | SUP000377 | SUP002419 |
 
 ## 4. File formats
 
@@ -85,12 +104,13 @@ Brands: one row per brand_activity above, `supplier` = `TO SET`, `default_unit` 
 
 Sheet `Upload`, headers in row 1, exactly these and in this order:
 
-`Item Code | Alternative Code | Description | Alternate Description | Det. Description | Brand Activity | Sub Activity | Vendor Price | Max Discount | Measurement Unit | Vendor Group | Vendor Note | Source`
+`Item Code | Alternative Code | Description | Alternate Description | Det. Description | Brand Activity | Sub Activity | Vendor Price | Local MSRP | Max Discount | Measurement Unit | Vendor Group | Vendor Note | Source`
 
 - `Item Code` cells are text format, so leading zeros survive.
 - `Vendor Price` is the price exactly as in the vendor pricelist, in the vendor's currency. Whether it is a vendor MSRP or a net buying price is decided by the pricing rule, not by the user.
 - `Brand Activity` is the same on every row (one brand per file).
 - `Sub Activity` is required. In files written by Tool 1 it is empty, highlighted yellow, with a dropdown fed from a hidden `Lists` sheet (the sub activities of that brand from `list_activities()`).
+- `Local MSRP` is optional: the vendor's MSRP in the local selling currency (for example Lightware's AED DDP price). It is required only for entities whose rule uses `local_msrp` as cost basis or retail method.
 - `Max Discount` is optional, 0 to 100.
 - `Vendor Group`, `Vendor Note`, `Source` are information only. Tool 2 ignores them.
 - A very hidden sheet `_meta` holds `batch_id`, `brand_activity`, `vendor_currency`.
@@ -107,17 +127,20 @@ File name: `{entity_code}_{brand_activity}_{yyyy-mm-dd}.xlsx`.
 
 | Column | Source |
 | --- | --- |
-| Supplier | `brands.supplier` |
+| Supplier | `brand_suppliers.supplier` for this brand and entity |
 | Item Code to Det. Description, Brand Activity, Sub Activity | input template |
-| Cost Price | calculated: NMK buying price in the VENDOR currency, 2 decimals |
-| Retail Price | calculated per entity, in the entity currency, whole number |
+| Cost Price | calculated: NMK buying price in the currency it was costed from (Vendor Price currency, or the local currency when cost_basis is `local_msrp`), 2 decimals |
+| Retail Price | per entity, in the entity currency: calculated and rounded up to `round_to`, or the row's Local MSRP when retail_method is `local_msrp` |
 | Max Discount | input template, else `pricing_rules.max_discount_pct`, else empty |
 | Family Name, Group Name, Category Name, Sub Category Name, Midwich Family, Inactive, Webactive, B2B | `erp_items` by item code. Empty if the item is not in `erp_items` |
 | Measurement Unit | input template, else `erp_items.measurement_unit`, else `brands.default_unit` |
 
+Cell types in the ERP file: Item Code and the five category columns are text (keep leading zeros such as `01`); Cost Price, Retail Price, Max Discount, Inactive, Webactive and B2B are numbers.
+
 ## 5. Tool 1: Convert
 
 1. **Upload form:** file (.xlsx), Brand Activity (dropdown from `list_activities()`), Vendor Currency (dropdown, required, always chosen by the user, never trusted from the file).
+   Optional second file: "Local MSRP pricelist" (for example Lightware's AED DDP file). It goes through the same mapping and confirm steps; its prices fill the `Local MSRP` column of matching item codes. Codes found in only one of the two files are listed as exceptions.
 2. **Read** the workbook in the browser with ExcelJS and `workbookToSheets()`. Save the original file to storage and create the `uploads` row. Hidden sheets are listed as "hidden, skipped" with a checkbox to include them.
 3. **Mapping** for each visible sheet, in this order:
    - a. Saved profile: look in the first 60 rows for a row whose normalised cells (lower case, trimmed, joined with `|`) equal a `vendor_profiles.header_signature` of this brand. If found, use its mapping with that row as `headerRow`.
@@ -186,14 +209,14 @@ For each sheet:
 ## 7. Tool 2: Build
 
 1. **Upload form:** the input template file; Vendor Currency (prefilled from `_meta` when present); entity checkboxes grouped by region with "select all" per region. Only entities returned by `list_activities()` for this brand and currency can be ticked; the others are greyed with "no pricing rule".
-2. **Read and check in the browser:** sheet `Upload` (else the first sheet). Headers must match section 4.1 exactly; if not, stop and name the missing or renamed columns. Parse `Vendor Price` and `Max Discount` with `toNumber()`.
+2. **Read and check in the browser:** sheet `Upload` (else the first sheet). Headers must match section 4.1 exactly; if not, stop and name the missing or renamed columns. Parse `Vendor Price`, `Local MSRP` and `Max Discount` with `toNumber()`.
 3. If `_meta.batch_id` matches an `uploads` row with `detected_rows`, show one line: "Compared with the detected data: N prices changed, N rows added, N rows removed."
 4. Call backend function `build-erp-rows` with brand_activity, vendor_currency, entity_codes and the rows. It runs with the service role and, for every entity and row:
    - finds the active rule for (brand_activity, sub_activity, vendor_currency) and its `pricing_rule_entities` row;
-   - runs `calculatePrice()` from `pricing.ts`;
+   - runs `calculatePrice()` from `pricing.ts` with `vendorPrice` = Local MSRP when the entity's cost_basis is `local_msrp`, else Vendor Price; `fixedRetail` = Local MSRP when retail_method is `local_msrp`, else null; `roundTo` = `round_to`;
    - fills the ERP columns per section 4.2;
    - returns the 20 ERP columns, `price_basis` ("MSRP less discount" or "Net price") and a list of checks. It never returns rates, overheads, discounts or divisors.
-5. **Checks.** Errors: Item Code empty; same Item Code twice in the file; Vendor Price not greater than 0; more than one Brand Activity in the file, or an unknown one; Sub Activity empty or without an active pricing rule for this currency; Max Discount outside 0 to 100; brand supplier missing or `TO SET`. Warnings: item not found in `erp_items` (ERP columns left empty); Measurement Unit empty; Description empty.
+5. **Checks.** Errors: Item Code empty; same Item Code twice in the file; Vendor Price not greater than 0; more than one Brand Activity in the file, or an unknown one; Sub Activity empty or without an active pricing rule for this currency; Max Discount outside 0 to 100; Local MSRP empty or not above 0 for an entity whose rule needs it; no `brand_suppliers` row for this brand and entity, or it is `TO SET`. Warnings: item not found in `erp_items` (ERP columns left empty); Measurement Unit empty; Description empty.
 6. **Review screen:** one tab per entity with the 20 columns, `price_basis` and a status column; counts of OK, warning and error rows. Download is blocked while errors exist. Button "Download rows with problems" gives an Excel of the failing input rows plus a `Problem` column. Button "Exclude N error rows and continue" is allowed.
 7. **Download:** one ERP Excel per entity (section 4.2), a button per entity. On download, save an `exports` row and an `export_audit` row.
 
@@ -203,32 +226,33 @@ All maths lives in `pricing.ts` (`calculatePrice`). Summary:
 
 - buying price = `net_price`: Vendor Price. `discount_from_msrp`: Vendor Price x (1 - discount_pct / 100).
 - landed cost = buying price x ex_rate x (1 + overhead_pct / 100).
-- retail price = landed cost divided by each margin divisor in turn, then rounded UP to a whole number with `safeRoundUp`.
+- retail price = landed cost divided by each margin divisor in turn, then rounded UP to a multiple of `round_to` with `safeRoundUp`. When retail_method is `local_msrp`, the retail price is the row's Local MSRP instead.
+- cost basis `local_msrp` means the cost is worked out from Local MSRP instead of Vendor Price (Lightware 001 buys at 60% of the AED DDP price).
 - Cost Price in the output = buying price, vendor currency, 2 decimals.
 
 ### Pricing test cases (must pass)
 
-| Rule | Vendor Price | Entity | Cost Price | Retail Price |
-| --- | --- | --- | --- | --- |
-| Brightsign / Brightsign / USD | 1000 | 001 | 650.00 | 4672 |
-| Brightsign / Brightsign / USD | 1000 | 011 | 650.00 | 4459 |
-| Brightsign / Brightsign / USD | 1000 | 007 | 650.00 | 4977 |
-| Brightsign / Brightsign / USD | 1000 | 008 | 650.00 | 4810 |
-| Ampetronic / Ampetronic / GBP | 200 | 001 | 200.00 | 2367 |
-| Lightware / Lightware / AED | 4500 | 001 | 2700.00 | 4950 |
-| Lightware / Lightware / AED | 4500 | 011 | 2700.00 | 4725 |
-| Lightware / Lightware / USD | 1200 | 007 | 720.00 | 5169 |
-| Lightware / Lightware / USD | 1200 | 008 | 720.00 | 4995 |
-| DTEN / DTEN / USD | 6246 | 012 | 6246.00 | 13251 |
-| DTEN / DTEN / USD | 6246 | 013 | 6246.00 | 46132 |
-| DTEN / DTEN / USD | 6246 | 014 | 6246.00 | 157042286 |
+| Rule | Vendor Price | Local MSRP | Entity | Cost Price | Retail Price |
+| --- | --- | --- | --- | --- | --- |
+| Brightsign / Brightsign / USD | 1000 | | 001 | 650.00 | 4672 |
+| Brightsign / Brightsign / USD | 1000 | | 008 | 650.00 | 4810 |
+| Ampetronic / Ampetronic / GBP | 200 | | 001 | 200.00 | 2367 |
+| Lightware / Lightware / USD | 1200 | 4500 | 001 | 2700.00 | 4500 |
+| Lightware / Lightware / USD | 1200 | 4500 | 011 | 720.00 | 4500 |
+| Lightware / Lightware / USD | 1200 | 4500 | 007 | 720.00 | 4900 |
+| Lightware / Lightware / USD | 1200 | 4500 | 008 | 720.00 | 4800 |
+| Turtle AV / Turtle AV / USD | 95.06 | | 001 | 95.06 | 769 |
+| Turtle AV / Turtle AV / USD | 95.06 | | 011 | 95.06 | 734 |
+| Turtle AV / Turtle AV / USD | 95.06 | | 007 | 95.06 | 799 |
+| Turtle AV / Turtle AV / USD | 95.06 | | 008 | 95.06 | 820 |
+| DTEN / DTEN / USD | 6246 | | 012 | 6246.00 | 13251 |
 
-Brightsign at 008 is the important one: a plain `Math.ceil` gives 4811, which is wrong.
+Brightsign at 008 is the important one: a plain `Math.ceil` gives 4811, which is wrong. The Lightware and Turtle AV lines are real items from NMK's ERP files.
 
 ## 9. Admin area
 
-- **Entities, Brands:** simple editable tables.
-- **Pricing rules:** table with one row per rule and a rate and overhead pair per entity, add, edit, deactivate. "TEST" badge for `is_test`.
+- **Entities, Brands:** simple editable tables. Brands shows one supplier code per entity (from `brand_suppliers`).
+- **Pricing rules:** table with one row per rule and, per entity, rate, overhead, cost basis, retail method and rounding step; add, edit, deactivate. "TEST" badge for `is_test`.
 - **ERP master data:** upload an Excel export with the headers `Item Code, Family Name, Group Name, Category Name, Sub Category Name, Midwich Family, Measurement Unit, Inactive, Webactive, B2B`. It replaces all rows of `erp_items`. Show row count and last refresh date.
 - **Pricing self-test:** a button that runs the section 8 test cases through `build-erp-rows` and shows pass or fail per line.
 - **History:** all uploads and exports, with download of the original file and of the exported rows.
@@ -243,6 +267,8 @@ With `extractSheet()` then `resolveDuplicates()`, the real sample files must giv
 | Lightware AED DDP, `Category` | same | 413 | 31 | 18 | 92 | 64 |
 | Midwich SEA, `Pricebook for Midwich` | header 2, code B, price C, description A | 25 | 1 | 10 | 0 | 1 |
 | Midwich SEA, `Orbit Pro Pricebook` | header 1, code F, price H, description A | 22 | 0 | 0 | 0 | 1 |
+
+With the USD file as the main pricelist and the AED file as the Local MSRP pricelist, then priced with the Lightware rule, 405 items match NMK's real Lightware ERP upload exactly on all four entities; the other 8 are flagged for the user (6 codes listed twice with different prices, 2 priced "CALL").
 
 The Lightware AED sheet must also raise the warning that the price header differs between sections ("MSRP AED DDP" and "MSRP USD Ex-work"). Both Lightware files have two hidden sheets that must be skipped.
 

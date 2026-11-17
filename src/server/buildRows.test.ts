@@ -9,9 +9,10 @@ function row(changes: Partial<InputRow> = {}): InputRow {
 }
 function db(master: Record<string, unknown>[] = [], supplier = "Supplier", defaultUnit: string | null = "EA") {
   const values: Record<string, unknown> = {
-    brands: { brand_activity: "Brightsign", supplier, default_unit: defaultUnit },
+    brands: { brand_activity: "Brightsign", default_unit: defaultUnit },
+    brand_suppliers: [{ entity_code: "008", supplier }],
     entities: [{ code: "008" }], erp_items: master,
-    pricing_rules: [{ id: "rule", active: true, sub_activity: "Brightsign", cost_method: "discount_from_msrp", discount_pct: 35, margin_divisors: [0.75, 0.75], max_discount_pct: 25, pricing_rule_entities: [{ entity_code: "008", ex_rate: 3.75, overhead_pct: 11 }] }],
+    pricing_rules: [{ id: "rule", active: true, sub_activity: "Brightsign", cost_method: "discount_from_msrp", discount_pct: 35, margin_divisors: [0.75, 0.75], max_discount_pct: 25, pricing_rule_entities: [{ entity_code: "008", ex_rate: 3.75, overhead_pct: 11, cost_basis: "vendor_price", retail_method: "calculate", round_to: 1 }] }],
   };
   return { from: (table: string) => {
     const q = { select: () => q, eq: () => q, in: () => q, maybeSingle: () => Promise.resolve({ data: values[table], error: null }), then: (resolve: (v: unknown) => void) => Promise.resolve({ data: values[table], error: null }).then(resolve) }; return q;
@@ -22,7 +23,10 @@ describe("Tool 2 checks", () => {
   const checks = (r: InputRow, rows = [r], known = true, active = true, supplier = "Supplier") => inputChecks(r, rows, "Brightsign", known, active, supplier);
   it("rejects empty Item Code", () => expect(checks(row({ "Item Code": "" }))).toContainEqual({ level: "error", message: "Item Code empty" }));
   it("rejects duplicate trimmed upper-case codes", () => expect(checks(row(), [row(), row({ "Item Code": " 00012 " })]).some(c => c.message.includes("twice"))).toBe(true));
-  it("requires Vendor Price greater than zero", () => { expect(checks(row({ "Vendor Price": 0 })).some(c => c.message.includes("greater than 0"))).toBe(true); expect(checks(row({ "Vendor Price": 1 }))).toEqual([]); });
+  it("rejects negative and invalid Vendor Prices", () => { for (const price of [-1, "bad", null]) expect(checks(row({ "Vendor Price": price })).some(c => c.level === "error" && c.message.includes("Vendor Price"))).toBe(true); expect(checks(row({ "Vendor Price": 1 }))).toEqual([]); });
+  it("allows zero Vendor Price with a price-on-request warning", () => { const result = checks(row({ "Vendor Price": 0 })); expect(result.filter(c => c.level === "error")).toEqual([]); expect(result).toContainEqual({ level: "warning", message: "Price on request: Cost Price and Retail Price are 0" }); });
+  it("requires positive Local MSRP only when needed by the entity", () => { for (const local of [null, "", "bad", 0, -1]) expect(inputChecks(row({ "Local MSRP": local }), [row()], "Brightsign", true, true, "Supplier", true).some(c => c.level === "error" && c.message.includes("Local MSRP"))).toBe(true); expect(inputChecks(row({ "Local MSRP": 4500 }), [row()], "Brightsign", true, true, "Supplier", true)).toEqual([]); expect(checks(row())).toEqual([]); });
+  it("does not require Local MSRP for price-on-request", () => { expect(inputChecks(row({ "Vendor Price": 0 }), [row()], "Brightsign", true, true, "Supplier", true).filter(c => c.level === "error")).toEqual([]); });
   it("rejects multiple brands", () => expect(checks(row(), [row(), row({ "Brand Activity": "Other" })]).some(c => c.message.includes("More than one"))).toBe(true));
   it("rejects unknown brands", () => expect(checks(row(), [row()], false).some(c => c.message.includes("Unknown"))).toBe(true));
   it("requires Sub Activity", () => expect(checks(row({ "Sub Activity": "" })).some(c => c.message === "Sub Activity empty")).toBe(true));

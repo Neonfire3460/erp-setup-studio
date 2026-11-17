@@ -16,7 +16,7 @@ export async function readInput(file: File) {
     if (values.every(v => v === null)) continue;
     const row = Object.fromEntries(INPUT_HEADERS.map((h, i) => [h, values[i] ?? null])) as InputRow;
     row["Item Code"] = text(row["Item Code"]);
-    for (const h of ["Vendor Price", "Max Discount"] as const) {
+    for (const h of ["Vendor Price", "Local MSRP", "Max Discount"] as const) {
       const raw = row[h];
       row[h] = toNumber(raw) ?? raw;
     }
@@ -55,7 +55,17 @@ export async function rowsBlob(headers: readonly string[], rows: Record<string, 
   ws.columns.forEach(c => { c.width = 23; });
   const codeCol = headers.indexOf("Item Code");
   if (codeCol >= 0) ws.getColumn(codeCol + 1).numFmt = "@";
-  rows.forEach(r => ws.addRow(headers.map(h => r[h] ?? null)));
+  const isErp = headers.length === ERP_HEADERS.length && headers.every((h, i) => h === ERP_HEADERS[i]);
+  const textColumns = new Set(["Item Code", "Family Name", "Group Name", "Category Name", "Sub Category Name", "Midwich Family"]);
+  const numberColumns = new Set(["Cost Price", "Retail Price", "Max Discount", "Inactive", "Webactive", "B2B"]);
+  if (isErp) headers.forEach((h, i) => { if (textColumns.has(h)) ws.getColumn(i + 1).numFmt = "@"; });
+  rows.forEach(r => ws.addRow(headers.map(h => {
+    const value = r[h];
+    if (value == null || value === "") return null;
+    if (isErp && textColumns.has(h)) return String(value);
+    if (isErp && numberColumns.has(h)) return toNumber(typeof value === "number" || typeof value === "string" ? value : String(value));
+    return value;
+  })));
   const costCol = headers.indexOf("Cost Price");
   if (costCol >= 0) ws.getColumn(costCol + 1).numFmt = "0.00";
   return workbookBlob(wb);

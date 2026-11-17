@@ -15,6 +15,13 @@
       "when": 1794573749036,
       "tag": "0001_atomic_erp_replace_and_export",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1794915596222,
+      "tag": "0002_entity_supplier_and_pricing_settings",
+      "breakpoints": true
     }
   ]
 }

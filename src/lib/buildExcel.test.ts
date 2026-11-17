@@ -16,10 +16,10 @@ it("blank template preserves exact headers, text codes, hidden dropdown list and
 });
 it("browser parsing preserves leading zeros and uses toNumber for prices and Max Discount", async () => {
   const w = new ExcelJS.Workbook(); const ws = w.addWorksheet("Upload"); ws.addRow([...INPUT_HEADERS]);
-  ws.addRow(["00012",null,"Player",null,null,"Brightsign","Brightsign","USD 1,000", "25", "EA"]);
+  ws.addRow(["00012",null,"Player",null,null,"Brightsign","Brightsign","USD 1,000", "AED 4,500", "25", "EA"]);
   const b = new Uint8Array(await w.xlsx.writeBuffer());
   const parsed = await readInput({ arrayBuffer: async () => b.buffer } as File);
-  expect(parsed.rows[0]?.["Item Code"]).toBe("00012"); expect(parsed.rows[0]?.["Vendor Price"]).toBe(1000); expect(parsed.rows[0]?.["Max Discount"]).toBe(25);
+  expect(parsed.rows[0]?.["Item Code"]).toBe("00012"); expect(parsed.rows[0]?.["Vendor Price"]).toBe(1000); expect(parsed.rows[0]?.["Local MSRP"]).toBe(4500); expect(parsed.rows[0]?.["Max Discount"]).toBe(25);
 });
 it("rejects renamed or reordered input headers", async () => {
   const w = new ExcelJS.Workbook(); w.addWorksheet("Upload").addRow(["SKU", ...INPUT_HEADERS.slice(1)]);
@@ -34,4 +34,25 @@ it("exports exactly 20 ERP headers and 2 decimal Cost Price", async () => {
 it("counts changed, added and removed detected rows", () => {
   const rows = [{ "Item Code": "A", "Vendor Price": 200 }, { "Item Code": "C", "Vendor Price": 300 }] as InputRow[];
   expect(compareDetected(rows,[{ rows: [{ kind:"item",itemCode:"A",vendorPrice:100 }, { kind:"item",itemCode:"B",vendorPrice:100 }] }])).toContain("1 prices changed, 1 rows added, 1 rows removed");
+});
+it("requires Local MSRP in the header immediately after Vendor Price", async () => {
+  expect(INPUT_HEADERS[8]).toBe("Local MSRP");
+  const w = new ExcelJS.Workbook(); w.addWorksheet("Upload").addRow(INPUT_HEADERS.filter(h => h !== "Local MSRP"));
+  const b = new Uint8Array(await w.xlsx.writeBuffer());
+  await expect(readInput({ arrayBuffer: async () => b.buffer } as File)).rejects.toThrow("Local MSRP");
+});
+it("writes ERP category codes as text and monetary values and flags as numbers", async () => {
+  const row = Object.fromEntries(ERP_HEADERS.map(h => [h, ""])) as ErpRow;
+  row["Item Code"] = "00012";
+  for (const h of ["Family Name", "Group Name", "Category Name", "Sub Category Name", "Midwich Family"] as const) row[h] = "01";
+  for (const h of ["Cost Price", "Retail Price", "Max Discount", "Inactive", "Webactive", "B2B"] as const) row[h] = h === "Inactive" ? "0" : "25";
+  const ws = (await readBlob(await erpBlob([row]))).worksheets[0];
+  for (const h of ["Item Code", "Family Name", "Group Name", "Category Name", "Sub Category Name", "Midwich Family"]) {
+    const cell = ws?.getCell(2, ERP_HEADERS.indexOf(h as typeof ERP_HEADERS[number]) + 1);
+    expect(cell?.type).toBe(ExcelJS.ValueType.String); expect(cell?.numFmt).toBe("@"); expect(cell?.value).toBe(h === "Item Code" ? "00012" : "01");
+  }
+  for (const h of ["Cost Price", "Retail Price", "Max Discount", "Inactive", "Webactive", "B2B"]) {
+    const cell = ws?.getCell(2, ERP_HEADERS.indexOf(h as typeof ERP_HEADERS[number]) + 1);
+    expect(cell?.type).toBe(ExcelJS.ValueType.Number); expect(cell?.value).toBe(h === "Inactive" ? 0 : 25);
+  }
 });

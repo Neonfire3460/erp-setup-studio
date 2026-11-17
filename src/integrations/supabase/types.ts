@@ -14,6 +14,39 @@ export type Database = {
   }
   public: {
     Tables: {
+      brand_suppliers: {
+        Row: {
+          brand_activity: string
+          entity_code: string
+          supplier: string
+        }
+        Insert: {
+          brand_activity: string
+          entity_code: string
+          supplier?: string
+        }
+        Update: {
+          brand_activity?: string
+          entity_code?: string
+          supplier?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "brand_suppliers_brand_activity_fkey"
+            columns: ["brand_activity"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["brand_activity"]
+          },
+          {
+            foreignKeyName: "brand_suppliers_entity_code_fkey"
+            columns: ["entity_code"]
+            isOneToOne: false
+            referencedRelation: "entities"
+            referencedColumns: ["code"]
+          },
+        ]
+      }
       brands: {
         Row: {
           brand_activity: string
@@ -209,21 +242,30 @@ export type Database = {
       }
       pricing_rule_entities: {
         Row: {
+          cost_basis: string
           entity_code: string
           ex_rate: number
           overhead_pct: number
+          retail_method: string
+          round_to: number
           rule_id: string
         }
         Insert: {
+          cost_basis?: string
           entity_code: string
           ex_rate: number
           overhead_pct?: number
+          retail_method?: string
+          round_to?: number
           rule_id: string
         }
         Update: {
+          cost_basis?: string
           entity_code?: string
           ex_rate?: number
           overhead_pct?: number
+          retail_method?: string
+          round_to?: number
           rule_id?: string
         }
         Relationships: [

@@ -40,3 +40,5 @@ use the editor.
 - Build preview, export and pricing self-test share buildRows.server.ts; only whitelisted ERP columns and checks cross the server boundary, while audited exports are repriced and saved atomically.
 - ERP replacement stages each upload under its own admin-owned batch and swaps through a transaction-scoped database function; partial staging never changes the master.
 - Generate Excel files in the browser and prepare blobs before a download click to preserve browser user activation.
+- Resolve suppliers only through brand_suppliers keyed by brand and entity; brands.supplier is deprecated so shared codes cannot leak into entity exports.
+- Pass entity cost basis, retail method and rounding step into the vendored pricing function; keep these settings and audit snapshots on the server for ordinary users.
