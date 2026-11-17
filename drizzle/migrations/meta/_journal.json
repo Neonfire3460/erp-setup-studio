@@ -36,6 +36,13 @@
       "when": 1794923424854,
       "tag": "0004_v2_data_model",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1794924547650,
+      "tag": "0005_erp_import_versions",
+      "breakpoints": true
     }
   ]
 }

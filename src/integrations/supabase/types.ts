@@ -244,6 +244,7 @@ export type Database = {
       }
       erp_imports: {
         Row: {
+          active: boolean
           entity_code: string
           file_name: string | null
           id: string
@@ -252,6 +253,7 @@ export type Database = {
           row_count: number
         }
         Insert: {
+          active?: boolean
           entity_code: string
           file_name?: string | null
           id?: string
@@ -260,6 +262,7 @@ export type Database = {
           row_count?: number
         }
         Update: {
+          active?: boolean
           entity_code?: string
           file_name?: string | null
           id?: string
@@ -291,6 +294,7 @@ export type Database = {
           family_name: string | null
           group_code: string | null
           group_name: string | null
+          import_id: string
           inactive: number | null
           item_code: string
           max_discount_pct: number | null
@@ -318,6 +322,7 @@ export type Database = {
           family_name?: string | null
           group_code?: string | null
           group_name?: string | null
+          import_id: string
           inactive?: number | null
           item_code: string
           max_discount_pct?: number | null
@@ -345,6 +350,7 @@ export type Database = {
           family_name?: string | null
           group_code?: string | null
           group_name?: string | null
+          import_id?: string
           inactive?: number | null
           item_code?: string
           max_discount_pct?: number | null
@@ -367,94 +373,14 @@ export type Database = {
             referencedRelation: "entities"
             referencedColumns: ["code"]
           },
+          {
+            foreignKeyName: "erp_items_import_id_fkey"
+            columns: ["import_id"]
+            isOneToOne: false
+            referencedRelation: "erp_imports"
+            referencedColumns: ["id"]
+          },
         ]
-      }
-      erp_items_staging: {
-        Row: {
-          alternative_code: string | null
-          alternative_description: string | null
-          b2b: number | null
-          batch_id: string
-          brand_activity: string | null
-          category_code: string | null
-          category_name: string | null
-          created_by: string
-          description: string | null
-          entity_code: string
-          family_code: string | null
-          family_name: string | null
-          group_code: string | null
-          group_name: string | null
-          inactive: number | null
-          item_code: string
-          max_discount_pct: number | null
-          measurement_unit: string | null
-          midwich_family_code: string | null
-          midwich_family_name: string | null
-          retail_price: number | null
-          sub_activity: string | null
-          sub_category_code: string | null
-          sub_category_name: string | null
-          supplier_code: string | null
-          webactive: number | null
-        }
-        Insert: {
-          alternative_code?: string | null
-          alternative_description?: string | null
-          b2b?: number | null
-          batch_id: string
-          brand_activity?: string | null
-          category_code?: string | null
-          category_name?: string | null
-          created_by?: string
-          description?: string | null
-          entity_code: string
-          family_code?: string | null
-          family_name?: string | null
-          group_code?: string | null
-          group_name?: string | null
-          inactive?: number | null
-          item_code: string
-          max_discount_pct?: number | null
-          measurement_unit?: string | null
-          midwich_family_code?: string | null
-          midwich_family_name?: string | null
-          retail_price?: number | null
-          sub_activity?: string | null
-          sub_category_code?: string | null
-          sub_category_name?: string | null
-          supplier_code?: string | null
-          webactive?: number | null
-        }
-        Update: {
-          alternative_code?: string | null
-          alternative_description?: string | null
-          b2b?: number | null
-          batch_id?: string
-          brand_activity?: string | null
-          category_code?: string | null
-          category_name?: string | null
-          created_by?: string
-          description?: string | null
-          entity_code?: string
-          family_code?: string | null
-          family_name?: string | null
-          group_code?: string | null
-          group_name?: string | null
-          inactive?: number | null
-          item_code?: string
-          max_discount_pct?: number | null
-          measurement_unit?: string | null
-          midwich_family_code?: string | null
-          midwich_family_name?: string | null
-          retail_price?: number | null
-          sub_activity?: string | null
-          sub_category_code?: string | null
-          sub_category_name?: string | null
-          supplier_code?: string | null
-          webactive?: number | null
-        }
-        Relationships: []
       }
       exchange_rates: {
         Row: {
@@ -888,9 +814,55 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      erp_items_active: {
+        Row: {
+          alternative_code: string | null
+          alternative_description: string | null
+          b2b: number | null
+          brand_activity: string | null
+          category_code: string | null
+          category_name: string | null
+          description: string | null
+          entity_code: string | null
+          family_code: string | null
+          family_name: string | null
+          group_code: string | null
+          group_name: string | null
+          import_id: string | null
+          inactive: number | null
+          item_code: string | null
+          max_discount_pct: number | null
+          measurement_unit: string | null
+          midwich_family_code: string | null
+          midwich_family_name: string | null
+          refreshed_at: string | null
+          retail_price: number | null
+          sub_activity: string | null
+          sub_category_code: string | null
+          sub_category_name: string | null
+          supplier_code: string | null
+          webactive: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "erp_items_entity_code_fkey"
+            columns: ["entity_code"]
+            isOneToOne: false
+            referencedRelation: "entities"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "erp_items_import_id_fkey"
+            columns: ["import_id"]
+            isOneToOne: false
+            referencedRelation: "erp_imports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
+      activate_erp_import: { Args: { _import_id: string }; Returns: number }
       admin_list_users: {
         Args: never
         Returns: {
@@ -907,6 +879,7 @@ export type Database = {
         }
         Returns: undefined
       }
+      delete_erp_import_rows: { Args: { _import_id: string }; Returns: number }
       erp_check: {
         Args: { codes: string[] }
         Returns: {
@@ -937,16 +910,6 @@ export type Database = {
           default_unit: string
           sub_activities: string[]
         }[]
-      }
-      swap_erp_items: {
-        Args: {
-          _batch_id: string
-          _entity_code: string
-          _expected_count: number
-          _file_name: string
-          _user_id: string
-        }
-        Returns: number
       }
     }
     Enums: {

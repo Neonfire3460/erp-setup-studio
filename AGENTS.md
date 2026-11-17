@@ -35,7 +35,7 @@ use the editor.
 - src/server/** is import-protected from client code; load it with `await import()` inside createServerFn handlers in src/lib/*.functions.ts.
 - Exchange rates, pricing rules, app_settings, ERP data, output rows and tickets are admin-only via RLS; signed-in users get brand and ERP info only via list_brands() and erp_check() (no prices).
 - The first auth user becomes admin via the on_auth_user_created_role trigger; roles change via admin_set_role(), which refuses to remove the last admin.
-- ERP data import parses in a Web Worker (SheetJS/PapaParse + readErpData), stages per batch, then finishErpImport verifies admin and calls service-only swap_erp_items() so one entity is replaced in one transaction (service role avoids the user statement timeout).
+- ERP data import parses in a Web Worker (SheetJS/PapaParse + readErpData), inserts batches into erp_items tagged with a new erp_imports id, activates it via activate_erp_import() (one small update), then deletes older imports' rows via delete_erp_import_rows() 10,000 at a time; no request touches all rows. Every ERP lookup must read only the active import (erp_items_active view or a join on erp_imports.active).
 - Pricing self-test cases live server-side in src/server/selfTestCases.server.ts and run through processSubmission with an in-memory context; only label and pass/fail return to the browser.
 - Generate Excel files in the browser and prepare blobs before a download click to preserve browser user activation.
 - Implement the design guide's theme in src/styles.css using Tailwind v4 @theme inline, and load remote fonts through the root head; legacy index.css/tailwind.config.ts are not used by this project.
