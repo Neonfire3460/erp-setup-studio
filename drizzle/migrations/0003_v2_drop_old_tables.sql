@@ -1,0 +1,17 @@
+DROP FUNCTION IF EXISTS public.list_activities();
+DROP FUNCTION IF EXISTS public.count_erp_matches(text[]);
+DROP FUNCTION IF EXISTS public.replace_erp_items(uuid, integer);
+DROP FUNCTION IF EXISTS public.save_erp_export(uuid, uuid, text, jsonb, jsonb);
+DROP TABLE IF EXISTS public.export_audit;
+DROP TABLE IF EXISTS public.exports;
+DROP TABLE IF EXISTS public.uploads;
+DROP TABLE IF EXISTS public.pricing_rule_entities;
+DROP TABLE IF EXISTS public.pricing_rules;
+DROP TABLE IF EXISTS public.erp_items_staging;
+DROP TABLE IF EXISTS public.erp_items;
+DROP TABLE IF EXISTS public.brand_suppliers;
+DROP TABLE IF EXISTS public.brands;
+DROP TABLE IF EXISTS public.vendor_profiles;
+DROP TABLE IF EXISTS public.entities;
+DROP FUNCTION IF EXISTS public.touch_pricing_rule();
+DROP FUNCTION IF EXISTS public.normalize_erp_item_code();

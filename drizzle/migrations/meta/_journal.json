@@ -22,6 +22,20 @@
       "when": 1794915596222,
       "tag": "0002_entity_supplier_and_pricing_settings",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1794923359882,
+      "tag": "0003_v2_drop_old_tables",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1794923424854,
+      "tag": "0004_v2_data_model",
+      "breakpoints": true
     }
   ]
 }

@@ -4,224 +4,113 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
-import { Switch } from "@/components/ui/switch";
 import { Sheet, SheetContent, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { LockKeyhole } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
-type RuleEntity = { entity_code: string; ex_rate: number; overhead_pct: number; cost_basis: string; retail_method: string; round_to: number };
-type Rule = {
-  id: string;
-  brand_activity: string;
-  sub_activity: string;
-  vendor_currency: string;
-  cost_method: string;
-  discount_pct: number;
-  margin_divisors: number[];
-  max_discount_pct: number | null;
-  is_test: boolean;
-  active: boolean;
-  pricing_rule_entities: RuleEntity[];
-};
-type Entity = { code: string; name: string };
+type Rule = { id: string; brand_activity: string; sub_activity: string | null; entity_code: string; overhead_pct: number; margin_divisors: number[]; round_to: number; max_discount_pct: number | null; compare_with_msrp: boolean; active: boolean; updated_at: string };
+type Draft = { id?: string; brand_activity: string; sub_activity: string; entity_code: string; overhead_pct: string; margin_divisors: string; round_to: string; max_discount_pct: string; compare_with_msrp: boolean; active: boolean };
+const ALL = "__all__";
+const empty = (brand = ""): Draft => ({ brand_activity: brand, sub_activity: ALL, entity_code: "", overhead_pct: "0", margin_divisors: "", round_to: "1", max_discount_pct: "", compare_with_msrp: false, active: true });
 
-type Draft = {
-  id?: string;
-  brand_activity: string;
-  sub_activity: string;
-  vendor_currency: string;
-  cost_method: string;
-  discount_pct: string;
-  margin_divisors: string;
-  max_discount_pct: string;
-  is_test: boolean;
-  active: boolean;
-  entities: Record<string, { ex_rate: string; overhead_pct: string; cost_basis: string; retail_method: string; round_to: string }>;
-};
-
-const emptyDraft = (): Draft => ({
-  brand_activity: "", sub_activity: "", vendor_currency: "", cost_method: "discount_from_msrp",
-  discount_pct: "0", margin_divisors: "", max_discount_pct: "", is_test: false, active: true, entities: {},
-});
+export function parseDivisors(s: string): number[] | null {
+  const parts = s.split(/[\s,÷]+/).filter(Boolean).map(Number);
+  return parts.length && parts.every((n) => Number.isFinite(n) && n > 0 && n <= 1) ? parts : null;
+}
 
 export function PricingRulesAdmin() {
   const [rules, setRules] = useState<Rule[]>([]);
-  const [entities, setEntities] = useState<Entity[]>([]);
+  const [brands, setBrands] = useState<{ brand_activity: string; subs: string[] }[]>([]);
+  const [entities, setEntities] = useState<{ code: string; name: string }[]>([]);
+  const [filter, setFilter] = useState(ALL);
   const [draft, setDraft] = useState<Draft | null>(null);
   const [saving, setSaving] = useState(false);
 
   async function load() {
-    const [r, e] = await Promise.all([
-      supabase.from("pricing_rules").select("*, pricing_rule_entities(entity_code, ex_rate, overhead_pct, cost_basis, retail_method, round_to)").order("brand_activity").order("sub_activity").order("vendor_currency"),
-      supabase.from("entities").select("code, name").order("sort_order"),
+    const [r, b, s, e] = await Promise.all([
+      supabase.from("pricing_rules").select("*").order("brand_activity").order("entity_code"),
+      supabase.from("brands").select("brand_activity").order("brand_activity"),
+      supabase.from("sub_activities").select("brand_activity,sub_activity").eq("active", true).order("sub_activity"),
+      supabase.from("entities").select("code,name").order("sort_order"),
     ]);
-    if (r.error) toast.error(r.error.message);
-    else setRules(r.data as Rule[]);
-    setEntities(e.data ?? []);
+    if (r.error || b.error || s.error || e.error) { toast.error("Could not load pricing rules"); return; }
+    setRules(r.data as Rule[]);
+    setBrands(b.data.map((x) => ({ brand_activity: x.brand_activity, subs: s.data.filter((y) => y.brand_activity === x.brand_activity).map((y) => y.sub_activity) })));
+    setEntities(e.data);
   }
-  useEffect(() => { load(); }, []);
-
-  function edit(r: Rule) {
-    const ents: Draft["entities"] = {};
-    r.pricing_rule_entities.forEach((e) => (ents[e.entity_code] = { ex_rate: String(e.ex_rate), overhead_pct: String(e.overhead_pct), cost_basis: e.cost_basis, retail_method: e.retail_method, round_to: String(e.round_to) }));
-    setDraft({
-      id: r.id, brand_activity: r.brand_activity, sub_activity: r.sub_activity, vendor_currency: r.vendor_currency,
-      cost_method: r.cost_method, discount_pct: String(r.discount_pct), margin_divisors: r.margin_divisors.join(", "),
-      max_discount_pct: r.max_discount_pct == null ? "" : String(r.max_discount_pct),
-      is_test: r.is_test, active: r.active, entities: ents,
-    });
-  }
-
-  async function toggleActive(r: Rule) {
-    const { error } = await supabase.from("pricing_rules").update({ active: !r.active }).eq("id", r.id);
-    if (error) toast.error(error.message);
-    load();
-  }
+  useEffect(() => { void load(); }, []);
 
   async function save() {
     if (!draft) return;
-    const divisors = draft.margin_divisors.split(",").map((s) => Number(s.trim())).filter((n) => !Number.isNaN(n));
-    if (!draft.brand_activity.trim() || !draft.sub_activity.trim() || !draft.vendor_currency.trim())
-      { toast.error("Brand Activity, Sub Activity and currency are required"); return; }
-    if (!divisors.length || divisors.some((d) => !(d > 0 && d <= 1)))
-      { toast.error("Margin divisors must be numbers between 0 and 1, comma separated"); return; }
-    const discount = Number(draft.discount_pct);
-    if (Number.isNaN(discount) || discount < 0 || discount >= 100) { toast.error("Discount must be 0 to 99.99"); return; }
-    const maxDisc = draft.max_discount_pct.trim() === "" ? null : Number(draft.max_discount_pct);
-    if (maxDisc !== null && (Number.isNaN(maxDisc) || maxDisc < 0 || maxDisc > 100)) { toast.error("Max discount must be 0 to 100"); return; }
-
-    const entRows: RuleEntity[] = [];
-    for (const [code, v] of Object.entries(draft.entities)) {
-      if (v.ex_rate.trim() === "" && v.overhead_pct.trim() === "") continue;
-      const ex = Number(v.ex_rate), oh = Number(v.overhead_pct || "0");
-      if (!(ex > 0) || Number.isNaN(oh)) { toast.error(`Entity ${code}: rate must be > 0 and overhead a number`); return; }
-      const step = Number(v.round_to);
-      if (!Number.isFinite(step) || step <= 0) { toast.error(`Entity ${code}: rounding step must be greater than 0`); return; }
-      entRows.push({ entity_code: code, ex_rate: ex, overhead_pct: oh, cost_basis: v.cost_basis, retail_method: v.retail_method, round_to: step });
-    }
-
+    const divisors = parseDivisors(draft.margin_divisors);
+    const overhead = Number(draft.overhead_pct), round = Number(draft.round_to), maxd = draft.max_discount_pct.trim() === "" ? null : Number(draft.max_discount_pct);
+    if (!draft.brand_activity || !draft.entity_code) return void toast.error("Brand and entity are required");
+    if (!divisors) return void toast.error("Margin divisors: one or more numbers between 0 and 1");
+    if (!Number.isFinite(overhead) || !(round > 0) || (maxd !== null && !Number.isFinite(maxd))) return void toast.error("Check overhead, round to and max discount");
     setSaving(true);
-    const payload = {
-      brand_activity: draft.brand_activity.trim(), sub_activity: draft.sub_activity.trim(),
-      vendor_currency: draft.vendor_currency.trim().toUpperCase(), cost_method: draft.cost_method,
-      discount_pct: draft.cost_method === "net_price" ? 0 : discount, margin_divisors: divisors,
-      max_discount_pct: maxDisc, is_test: draft.is_test, active: draft.active,
-    };
-    const res = draft.id
-      ? await supabase.from("pricing_rules").update(payload).eq("id", draft.id).select("id").single()
-      : await supabase.from("pricing_rules").insert(payload).select("id").single();
-    if (res.error) { setSaving(false); toast.error(res.error.message) ; return; }
-    const ruleId = res.data.id;
-    const del = await supabase.from("pricing_rule_entities").delete().eq("rule_id", ruleId);
-    if (del.error) { setSaving(false); toast.error(del.error.message) ; return; }
-    if (entRows.length) {
-      const ins = await supabase.from("pricing_rule_entities").insert(entRows.map((e) => ({ ...e, rule_id: ruleId })));
-      if (ins.error) { setSaving(false); toast.error(ins.error.message) ; return; }
-    }
-    // keep brands in sync: every rule brand has a brands row
-    await supabase.from("brands").upsert({ brand_activity: payload.brand_activity }, { onConflict: "brand_activity", ignoreDuplicates: true });
+    const row = { brand_activity: draft.brand_activity, sub_activity: draft.sub_activity === ALL ? null : draft.sub_activity, entity_code: draft.entity_code, method: "calculate", overhead_pct: overhead, margin_divisors: divisors, round_to: round, max_discount_pct: maxd, compare_with_msrp: draft.compare_with_msrp, active: draft.active };
+    const res = draft.id ? await supabase.from("pricing_rules").update(row).eq("id", draft.id) : await supabase.from("pricing_rules").insert(row);
     setSaving(false);
-    setDraft(null);
-    toast.success("Rule saved");
-    load();
+    if (res.error) return void toast.error(res.error.code === "23505" ? "A rule for this brand, sub activity and entity already exists" : res.error.message);
+    toast.success("Rule saved"); setDraft(null); void load();
+  }
+  async function toggle(r: Rule) {
+    const res = await supabase.from("pricing_rules").update({ active: !r.active }).eq("id", r.id);
+    if (res.error) toast.error(res.error.message); else void load();
   }
 
-  const setD = (patch: Partial<Draft>) => setDraft((d) => (d ? { ...d, ...patch } : d));
-  const setEnt = (code: string, k: keyof Draft["entities"][string], v: string) =>
-    setDraft((d) => d ? { ...d, entities: { ...d.entities, [code]: { ex_rate: "", overhead_pct: "", cost_basis: "vendor_price", retail_method: "calculate", round_to: "1", ...d.entities[code], [k]: v } } } : d);
-
+  const shown = rules.filter((r) => filter === ALL || r.brand_activity === filter);
+  const subs = brands.find((b) => b.brand_activity === draft?.brand_activity)?.subs ?? [];
   return (
-    <div className="space-y-3">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-sm text-muted-foreground">Admin-only pricing settings by entity.</p>
-        <Button onClick={() => setDraft(emptyDraft())}>Add rule</Button>
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-end gap-3">
+        <div className="w-60 space-y-2"><Label>Brand</Label><Select value={filter} onValueChange={setFilter}><SelectTrigger className="bg-card"><SelectValue /></SelectTrigger><SelectContent><SelectItem value={ALL}>All brands</SelectItem>{brands.map((b) => <SelectItem key={b.brand_activity} value={b.brand_activity}>{b.brand_activity}</SelectItem>)}</SelectContent></Select></div>
+        <Button onClick={() => setDraft(empty(filter === ALL ? "" : filter))}>Add rule</Button>
       </div>
-      <div className="overflow-x-auto">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Brand Activity</TableHead><TableHead>Sub Activity</TableHead><TableHead>Currency</TableHead>
-              <TableHead>Method</TableHead><TableHead><LockKeyhole className="mr-1 inline size-3" />Discount %</TableHead><TableHead><LockKeyhole className="mr-1 inline size-3" />Divisors</TableHead><TableHead>Max disc.</TableHead>
-              {entities.map((e) => <TableHead key={e.code}><LockKeyhole className="mr-1 inline size-3" />{e.code}</TableHead>)}
-              <TableHead>Active</TableHead><TableHead />
+      <Table>
+        <TableHeader><TableRow><TableHead>Brand</TableHead><TableHead>Sub activity</TableHead><TableHead>Entity</TableHead><TableHead className="text-right">Overhead %</TableHead><TableHead>Divisors</TableHead><TableHead className="text-right">Round to</TableHead><TableHead className="text-right">Max discount</TableHead><TableHead>Compare MSRP</TableHead><TableHead>Updated</TableHead><TableHead /></TableRow></TableHeader>
+        <TableBody>
+          {shown.length === 0 && <TableRow><TableCell colSpan={10} className="text-center text-muted-foreground">No pricing rules.</TableCell></TableRow>}
+          {shown.map((r) => (
+            <TableRow key={r.id} className={r.active ? "" : "opacity-50"}>
+              <TableCell className="font-semibold">{r.brand_activity}</TableCell>
+              <TableCell>{r.sub_activity ?? "All"}</TableCell>
+              <TableCell>{r.entity_code}</TableCell>
+              <TableCell className="text-right">{r.overhead_pct}</TableCell>
+              <TableCell>{r.margin_divisors.map((d) => `÷ ${d}`).join(" ")}</TableCell>
+              <TableCell className="text-right">{r.round_to}</TableCell>
+              <TableCell className="text-right">{r.max_discount_pct ?? ""}</TableCell>
+              <TableCell>{r.compare_with_msrp ? "Yes" : "No"}</TableCell>
+              <TableCell className="whitespace-nowrap text-muted-foreground">{new Date(r.updated_at).toLocaleDateString()}{!r.active && <Badge variant="outline" className="ml-2">Inactive</Badge>}</TableCell>
+              <TableCell className="space-x-1 whitespace-nowrap">
+                <Button size="sm" variant="ghost" onClick={() => setDraft({ id: r.id, brand_activity: r.brand_activity, sub_activity: r.sub_activity ?? ALL, entity_code: r.entity_code, overhead_pct: String(r.overhead_pct), margin_divisors: r.margin_divisors.join(" "), round_to: String(r.round_to), max_discount_pct: r.max_discount_pct === null ? "" : String(r.max_discount_pct), compare_with_msrp: r.compare_with_msrp, active: r.active })}>Edit</Button>
+                <Button size="sm" variant="ghost" onClick={() => void toggle(r)}>{r.active ? "Deactivate" : "Activate"}</Button>
+              </TableCell>
             </TableRow>
-          </TableHeader>
-          <TableBody>
-            {rules.map((r) => (
-              <TableRow key={r.id} className={r.active ? "" : "opacity-50"}>
-                <TableCell className="whitespace-nowrap">{r.brand_activity} {r.is_test && <Badge variant="secondary">TEST</Badge>}</TableCell>
-                <TableCell>{r.sub_activity}</TableCell>
-                <TableCell>{r.vendor_currency}</TableCell>
-                <TableCell className="whitespace-nowrap">{r.cost_method}</TableCell>
-                <TableCell>{r.discount_pct}</TableCell>
-                <TableCell>{r.margin_divisors.join(", ")}</TableCell>
-                <TableCell>{r.max_discount_pct ?? ""}</TableCell>
-                {entities.map((e) => {
-                  const x = r.pricing_rule_entities.find((p) => p.entity_code === e.code);
-                  return <TableCell key={e.code} className="whitespace-nowrap">{x ? <><div>{x.ex_rate} / {x.overhead_pct}</div><div>{x.cost_basis}</div><div>{x.retail_method}</div><div>Round to {x.round_to}</div></> : "-"}</TableCell>;
-                })}
-                <TableCell>{r.active ? "Yes" : "No"}</TableCell>
-                <TableCell className="space-x-2 whitespace-nowrap">
-                  <Button size="sm" variant="ghost" onClick={() => edit(r)}>Edit</Button>
-                  <Button size="sm" variant="ghost" onClick={() => toggleActive(r)}>{r.active ? "Deactivate" : "Activate"}</Button>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
-
-      <Sheet open={!!draft} onOpenChange={(o) => !o && setDraft(null)}>
-        <SheetContent className="w-full overflow-y-auto bg-card sm:max-w-2xl">
-          <SheetHeader><p className="flex items-center gap-2 text-xs text-muted-foreground"><LockKeyhole className="size-3" />Admin only</p><SheetTitle>{draft?.id ? "Edit pricing rule" : "Add pricing rule"}</SheetTitle></SheetHeader>
-          {draft && (
-            <div className="grid grid-cols-1 gap-4 pt-6 sm:grid-cols-2">
-              <Field label="Brand Activity"><Input value={draft.brand_activity} onChange={(e) => setD({ brand_activity: e.target.value })} /></Field>
-              <Field label="Sub Activity"><Input value={draft.sub_activity} onChange={(e) => setD({ sub_activity: e.target.value })} /></Field>
-              <Field label="Vendor currency"><Input value={draft.vendor_currency} onChange={(e) => setD({ vendor_currency: e.target.value })} /></Field>
-              <Field label="Cost method">
-                <Select value={draft.cost_method} onValueChange={(v) => setD({ cost_method: v })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="discount_from_msrp">discount_from_msrp</SelectItem>
-                    <SelectItem value="net_price">net_price</SelectItem>
-                  </SelectContent>
-                </Select>
-              </Field>
-              <Field label="Discount %"><Input type="number" value={draft.discount_pct} disabled={draft.cost_method === "net_price"} onChange={(e) => setD({ discount_pct: e.target.value })} /></Field>
-              <Field label="Margin divisors (comma separated)"><Input value={draft.margin_divisors} onChange={(e) => setD({ margin_divisors: e.target.value })} placeholder="0.75, 0.75" /></Field>
-              <Field label="Max discount % (optional)"><Input type="number" value={draft.max_discount_pct} onChange={(e) => setD({ max_discount_pct: e.target.value })} /></Field>
-              <div className="flex items-end gap-6 pb-2">
-                <label className="flex items-center gap-2 text-sm"><Switch checked={draft.is_test} onCheckedChange={(v) => setD({ is_test: v })} /> Test</label>
-                <label className="flex items-center gap-2 text-sm"><Switch checked={draft.active} onCheckedChange={(v) => setD({ active: v })} /> Active</label>
-              </div>
-              <div className="space-y-3 sm:col-span-2">
-                <Label>Entities (leave both empty = not available)</Label>
-                {entities.map((e) => (
-                  <div key={e.code} className="grid grid-cols-2 items-center gap-2 border-b pb-3 sm:grid-cols-3">
-                    <span className="text-sm">{e.code} {e.name}</span>
-                    <Input aria-label={`${e.code} exchange rate`} placeholder="Exchange rate" value={draft.entities[e.code]?.ex_rate ?? ""} onChange={(x) => setEnt(e.code, "ex_rate", x.target.value)} />
-                    <Input aria-label={`${e.code} overhead percent`} placeholder="Overhead %" value={draft.entities[e.code]?.overhead_pct ?? ""} onChange={(x) => setEnt(e.code, "overhead_pct", x.target.value)} />
-                    <Field label="Cost basis"><Select value={draft.entities[e.code]?.cost_basis ?? "vendor_price"} onValueChange={v => setEnt(e.code, "cost_basis", v)}><SelectTrigger aria-label={`${e.code} cost basis`}><SelectValue /></SelectTrigger><SelectContent><SelectItem value="vendor_price">Vendor Price</SelectItem><SelectItem value="local_msrp">Local MSRP</SelectItem></SelectContent></Select></Field>
-                    <Field label="Retail method"><Select value={draft.entities[e.code]?.retail_method ?? "calculate"} onValueChange={v => setEnt(e.code, "retail_method", v)}><SelectTrigger aria-label={`${e.code} retail method`}><SelectValue /></SelectTrigger><SelectContent><SelectItem value="calculate">Calculate</SelectItem><SelectItem value="local_msrp">Local MSRP</SelectItem></SelectContent></Select></Field>
-                    <Field label="Round to"><Input aria-label={`${e.code} rounding step`} type="number" min="0.01" step="any" value={draft.entities[e.code]?.round_to ?? "1"} onChange={x => setEnt(e.code, "round_to", x.target.value)} /></Field>
-                  </div>
-                ))}
-              </div>
+          ))}
+        </TableBody>
+      </Table>
+      <Sheet open={draft !== null} onOpenChange={(o) => !o && setDraft(null)}>
+        <SheetContent className="w-full overflow-y-auto sm:max-w-md">
+          <SheetHeader><SheetTitle>{draft?.id ? "Edit pricing rule" : "Add pricing rule"}</SheetTitle></SheetHeader>
+          {draft && <div className="space-y-4 px-4">
+            <div className="space-y-2"><Label>Brand</Label><Select value={draft.brand_activity} onValueChange={(v) => setDraft({ ...draft, brand_activity: v, sub_activity: ALL })}><SelectTrigger><SelectValue placeholder="Choose brand" /></SelectTrigger><SelectContent>{brands.map((b) => <SelectItem key={b.brand_activity} value={b.brand_activity}>{b.brand_activity}</SelectItem>)}</SelectContent></Select></div>
+            <div className="space-y-2"><Label>Sub activity</Label><Select value={draft.sub_activity} onValueChange={(v) => setDraft({ ...draft, sub_activity: v })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value={ALL}>All sub activities</SelectItem>{subs.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent></Select></div>
+            <div className="space-y-2"><Label>Entity</Label><Select value={draft.entity_code} onValueChange={(v) => setDraft({ ...draft, entity_code: v })}><SelectTrigger><SelectValue placeholder="Choose entity" /></SelectTrigger><SelectContent>{entities.map((e) => <SelectItem key={e.code} value={e.code}>{e.code} {e.name}</SelectItem>)}</SelectContent></Select></div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2"><Label>Overhead %</Label><Input inputMode="decimal" value={draft.overhead_pct} onChange={(e) => setDraft({ ...draft, overhead_pct: e.target.value })} /></div>
+              <div className="space-y-2"><Label>Round up to</Label><Select value={draft.round_to} onValueChange={(v) => setDraft({ ...draft, round_to: v })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{["1", "10", "100", "1000"].map((v) => <SelectItem key={v} value={v}>{v}</SelectItem>)}</SelectContent></Select></div>
             </div>
-          )}
-          <SheetFooter>
-            <Button variant="outline" onClick={() => setDraft(null)}>Cancel</Button>
-            <Button onClick={save} disabled={saving}>Save</Button>
-          </SheetFooter>
+            <div className="space-y-2"><Label>Margin divisors</Label><Input placeholder="0.75 0.75" value={draft.margin_divisors} onChange={(e) => setDraft({ ...draft, margin_divisors: e.target.value })} /><p className="text-xs text-muted-foreground">{parseDivisors(draft.margin_divisors)?.map((d) => `÷ ${d}`).join(" ") ?? "One or more numbers between 0 and 1"}</p></div>
+            <div className="space-y-2"><Label>Max discount %</Label><Input inputMode="decimal" value={draft.max_discount_pct} onChange={(e) => setDraft({ ...draft, max_discount_pct: e.target.value })} /></div>
+            <Label className="flex items-center gap-2"><Checkbox checked={draft.compare_with_msrp} onCheckedChange={(v) => setDraft({ ...draft, compare_with_msrp: v === true })} />Compare with vendor MSRP</Label>
+            <Label className="flex items-center gap-2"><Checkbox checked={draft.active} onCheckedChange={(v) => setDraft({ ...draft, active: v === true })} />Active</Label>
+          </div>}
+          <SheetFooter><Button disabled={saving} onClick={() => void save()}>{saving ? "Saving..." : "Save"}</Button></SheetFooter>
         </SheetContent>
       </Sheet>
     </div>
   );
-}
-
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return <div className="space-y-1"><Label className="text-[11px] uppercase text-muted-foreground">{label.includes("Discount") || label.includes("divisors") ? <LockKeyhole className="inline size-3" /> : null}{label}</Label>{children}</div>;
 }

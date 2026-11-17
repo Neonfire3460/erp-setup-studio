@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { Link, useNavigate, useRouteContext, useRouterState } from "@tanstack/react-router";
-import { FileSpreadsheet, Boxes, History, Settings, LogOut } from "lucide-react";
+import { FileSpreadsheet, Boxes, Inbox, Settings, LogOut, LayoutGrid } from "lucide-react";
 import { BrandLockup } from "@/components/BrandLockup";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -22,9 +22,10 @@ export function AppShell({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
 
   const items = [
+    { title: "Catalogue", url: "/catalogue", icon: LayoutGrid },
     { title: "Convert", url: "/convert", icon: FileSpreadsheet },
     { title: "Build", url: "/build", icon: Boxes },
-    { title: "History", url: "/history", icon: History },
+    { title: "My submissions", url: "/my-submissions", icon: Inbox },
     ...(isAdmin ? [{ title: "Admin", url: "/admin", icon: Settings }] : []),
   ] as const;
 

@@ -12,6 +12,6 @@ export const Route = createFileRoute("/")({
     ],
   }),
   beforeLoad: () => {
-    throw redirect({ to: "/convert" });
+    throw redirect({ to: "/catalogue" });
   },
 });

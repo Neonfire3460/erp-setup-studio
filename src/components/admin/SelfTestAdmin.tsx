@@ -33,7 +33,7 @@ export function SelfTestAdmin() {
       {lines && (
         <Table>
           <TableHeader>
-            <TableRow><TableHead>Case (rule · vendor price · entity)</TableHead><TableHead>Result</TableHead></TableRow>
+            <TableRow><TableHead>Case</TableHead><TableHead>Result</TableHead></TableRow>
           </TableHeader>
           <TableBody>
             {lines.map((l, i) => (

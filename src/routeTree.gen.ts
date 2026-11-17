@@ -14,8 +14,9 @@ import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
 import { Route as AuthenticatedBuildRouteImport } from './routes/_authenticated/build'
+import { Route as AuthenticatedCatalogueRouteImport } from './routes/_authenticated/catalogue'
 import { Route as AuthenticatedConvertRouteImport } from './routes/_authenticated/convert'
-import { Route as AuthenticatedHistoryRouteImport } from './routes/_authenticated/history'
+import { Route as AuthenticatedMySubmissionsRouteImport } from './routes/_authenticated/my-submissions'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -41,32 +42,40 @@ const AuthenticatedBuildRoute = AuthenticatedBuildRouteImport.update({
   path: '/build',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedCatalogueRoute = AuthenticatedCatalogueRouteImport.update({
+  id: '/catalogue',
+  path: '/catalogue',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedConvertRoute = AuthenticatedConvertRouteImport.update({
   id: '/convert',
   path: '/convert',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
-const AuthenticatedHistoryRoute = AuthenticatedHistoryRouteImport.update({
-  id: '/history',
-  path: '/history',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
+const AuthenticatedMySubmissionsRoute =
+  AuthenticatedMySubmissionsRouteImport.update({
+    id: '/my-submissions',
+    path: '/my-submissions',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/admin': typeof AuthenticatedAdminRoute
   '/build': typeof AuthenticatedBuildRoute
+  '/catalogue': typeof AuthenticatedCatalogueRoute
   '/convert': typeof AuthenticatedConvertRoute
-  '/history': typeof AuthenticatedHistoryRoute
+  '/my-submissions': typeof AuthenticatedMySubmissionsRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/admin': typeof AuthenticatedAdminRoute
   '/build': typeof AuthenticatedBuildRoute
+  '/catalogue': typeof AuthenticatedCatalogueRoute
   '/convert': typeof AuthenticatedConvertRoute
-  '/history': typeof AuthenticatedHistoryRoute
+  '/my-submissions': typeof AuthenticatedMySubmissionsRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -75,14 +84,29 @@ export interface FileRoutesById {
   '/auth': typeof AuthRoute
   '/_authenticated/admin': typeof AuthenticatedAdminRoute
   '/_authenticated/build': typeof AuthenticatedBuildRoute
+  '/_authenticated/catalogue': typeof AuthenticatedCatalogueRoute
   '/_authenticated/convert': typeof AuthenticatedConvertRoute
-  '/_authenticated/history': typeof AuthenticatedHistoryRoute
+  '/_authenticated/my-submissions': typeof AuthenticatedMySubmissionsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/auth' | '/admin' | '/build' | '/convert' | '/history'
+  fullPaths:
+    | '/'
+    | '/auth'
+    | '/admin'
+    | '/build'
+    | '/catalogue'
+    | '/convert'
+    | '/my-submissions'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/auth' | '/admin' | '/build' | '/convert' | '/history'
+  to:
+    | '/'
+    | '/auth'
+    | '/admin'
+    | '/build'
+    | '/catalogue'
+    | '/convert'
+    | '/my-submissions'
   id:
     | '__root__'
     | '/'
@@ -90,8 +114,9 @@ export interface FileRouteTypes {
     | '/auth'
     | '/_authenticated/admin'
     | '/_authenticated/build'
+    | '/_authenticated/catalogue'
     | '/_authenticated/convert'
-    | '/_authenticated/history'
+    | '/_authenticated/my-submissions'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -137,6 +162,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedBuildRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/catalogue': {
+      id: '/_authenticated/catalogue'
+      path: '/catalogue'
+      fullPath: '/catalogue'
+      preLoaderRoute: typeof AuthenticatedCatalogueRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/convert': {
       id: '/_authenticated/convert'
       path: '/convert'
@@ -144,11 +176,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedConvertRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
-    '/_authenticated/history': {
-      id: '/_authenticated/history'
-      path: '/history'
-      fullPath: '/history'
-      preLoaderRoute: typeof AuthenticatedHistoryRouteImport
+    '/_authenticated/my-submissions': {
+      id: '/_authenticated/my-submissions'
+      path: '/my-submissions'
+      fullPath: '/my-submissions'
+      preLoaderRoute: typeof AuthenticatedMySubmissionsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
   }
@@ -157,15 +189,17 @@ declare module '@tanstack/react-router' {
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedAdminRoute: typeof AuthenticatedAdminRoute
   AuthenticatedBuildRoute: typeof AuthenticatedBuildRoute
+  AuthenticatedCatalogueRoute: typeof AuthenticatedCatalogueRoute
   AuthenticatedConvertRoute: typeof AuthenticatedConvertRoute
-  AuthenticatedHistoryRoute: typeof AuthenticatedHistoryRoute
+  AuthenticatedMySubmissionsRoute: typeof AuthenticatedMySubmissionsRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAdminRoute: AuthenticatedAdminRoute,
   AuthenticatedBuildRoute: AuthenticatedBuildRoute,
+  AuthenticatedCatalogueRoute: AuthenticatedCatalogueRoute,
   AuthenticatedConvertRoute: AuthenticatedConvertRoute,
-  AuthenticatedHistoryRoute: AuthenticatedHistoryRoute,
+  AuthenticatedMySubmissionsRoute: AuthenticatedMySubmissionsRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =

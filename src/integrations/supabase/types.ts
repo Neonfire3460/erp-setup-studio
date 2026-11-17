@@ -14,6 +14,21 @@ export type Database = {
   }
   public: {
     Tables: {
+      app_settings: {
+        Row: {
+          key: string
+          value: Json
+        }
+        Insert: {
+          key: string
+          value: Json
+        }
+        Update: {
+          key?: string
+          value?: Json
+        }
+        Relationships: []
+      }
       brand_suppliers: {
         Row: {
           brand_activity: string
@@ -23,7 +38,7 @@ export type Database = {
         Insert: {
           brand_activity: string
           entity_code: string
-          supplier?: string
+          supplier: string
         }
         Update: {
           brand_activity?: string
@@ -49,24 +64,160 @@ export type Database = {
       }
       brands: {
         Row: {
+          active: boolean
           brand_activity: string
           default_unit: string | null
-          supplier: string
         }
         Insert: {
+          active?: boolean
           brand_activity: string
           default_unit?: string | null
-          supplier?: string
         }
         Update: {
+          active?: boolean
           brand_activity?: string
           default_unit?: string | null
-          supplier?: string
+        }
+        Relationships: []
+      }
+      catalogue_items: {
+        Row: {
+          alternate_description: string | null
+          alternative_code: string | null
+          approved_at: string | null
+          brand_activity: string | null
+          category_name: string | null
+          currency: string | null
+          description: string | null
+          entity_code: string
+          family_name: string | null
+          group_name: string | null
+          item_code: string
+          midwich_family_name: string | null
+          retail_price: number | null
+          sub_activity: string | null
+          sub_category_name: string | null
+          submission_id: string | null
+        }
+        Insert: {
+          alternate_description?: string | null
+          alternative_code?: string | null
+          approved_at?: string | null
+          brand_activity?: string | null
+          category_name?: string | null
+          currency?: string | null
+          description?: string | null
+          entity_code: string
+          family_name?: string | null
+          group_name?: string | null
+          item_code: string
+          midwich_family_name?: string | null
+          retail_price?: number | null
+          sub_activity?: string | null
+          sub_category_name?: string | null
+          submission_id?: string | null
+        }
+        Update: {
+          alternate_description?: string | null
+          alternative_code?: string | null
+          approved_at?: string | null
+          brand_activity?: string | null
+          category_name?: string | null
+          currency?: string | null
+          description?: string | null
+          entity_code?: string
+          family_name?: string | null
+          group_name?: string | null
+          item_code?: string
+          midwich_family_name?: string | null
+          retail_price?: number | null
+          sub_activity?: string | null
+          sub_category_name?: string | null
+          submission_id?: string | null
+        }
+        Relationships: []
+      }
+      conversions: {
+        Row: {
+          ai_response: Json | null
+          brand_activity: string | null
+          created_at: string
+          detected_rows: Json | null
+          files: Json
+          id: string
+          user_id: string
+        }
+        Insert: {
+          ai_response?: Json | null
+          brand_activity?: string | null
+          created_at?: string
+          detected_rows?: Json | null
+          files?: Json
+          id?: string
+          user_id?: string
+        }
+        Update: {
+          ai_response?: Json | null
+          brand_activity?: string | null
+          created_at?: string
+          detected_rows?: Json | null
+          files?: Json
+          id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      currencies: {
+        Row: {
+          active: boolean
+          code: string
+          name: string
+          sort_order: number
+        }
+        Insert: {
+          active?: boolean
+          code: string
+          name?: string
+          sort_order?: number
+        }
+        Update: {
+          active?: boolean
+          code?: string
+          name?: string
+          sort_order?: number
+        }
+        Relationships: []
+      }
+      description_examples: {
+        Row: {
+          brand_activity: string | null
+          created_at: string
+          final: string | null
+          id: string
+          item_code: string | null
+          original: string | null
+        }
+        Insert: {
+          brand_activity?: string | null
+          created_at?: string
+          final?: string | null
+          id?: string
+          item_code?: string | null
+          original?: string | null
+        }
+        Update: {
+          brand_activity?: string | null
+          created_at?: string
+          final?: string | null
+          id?: string
+          item_code?: string | null
+          original?: string | null
         }
         Relationships: []
       }
       entities: {
         Row: {
+          active: boolean
           code: string
           currency: string
           name: string
@@ -74,6 +225,7 @@ export type Database = {
           sort_order: number
         }
         Insert: {
+          active?: boolean
           code: string
           currency: string
           name: string
@@ -81,6 +233,7 @@ export type Database = {
           sort_order?: number
         }
         Update: {
+          active?: boolean
           code?: string
           currency?: string
           name?: string
@@ -89,198 +242,326 @@ export type Database = {
         }
         Relationships: []
       }
-      erp_items: {
+      erp_imports: {
         Row: {
-          b2b: string | null
-          category_name: string | null
-          family_name: string | null
-          group_name: string | null
-          inactive: string | null
-          item_code: string
-          measurement_unit: string | null
-          midwich_family: string | null
-          refreshed_at: string
-          sub_category_name: string | null
-          webactive: string | null
+          entity_code: string
+          file_name: string | null
+          id: string
+          imported_at: string
+          imported_by: string | null
+          row_count: number
         }
         Insert: {
-          b2b?: string | null
-          category_name?: string | null
-          family_name?: string | null
-          group_name?: string | null
-          inactive?: string | null
-          item_code: string
-          measurement_unit?: string | null
-          midwich_family?: string | null
-          refreshed_at?: string
-          sub_category_name?: string | null
-          webactive?: string | null
+          entity_code: string
+          file_name?: string | null
+          id?: string
+          imported_at?: string
+          imported_by?: string | null
+          row_count?: number
         }
         Update: {
-          b2b?: string | null
-          category_name?: string | null
-          family_name?: string | null
-          group_name?: string | null
-          inactive?: string | null
-          item_code?: string
-          measurement_unit?: string | null
-          midwich_family?: string | null
-          refreshed_at?: string
-          sub_category_name?: string | null
-          webactive?: string | null
+          entity_code?: string
+          file_name?: string | null
+          id?: string
+          imported_at?: string
+          imported_by?: string | null
+          row_count?: number
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "erp_imports_entity_code_fkey"
+            columns: ["entity_code"]
+            isOneToOne: false
+            referencedRelation: "entities"
+            referencedColumns: ["code"]
+          },
+        ]
+      }
+      erp_items: {
+        Row: {
+          alternative_code: string | null
+          alternative_description: string | null
+          b2b: number | null
+          brand_activity: string | null
+          category_code: string | null
+          category_name: string | null
+          description: string | null
+          entity_code: string
+          family_code: string | null
+          family_name: string | null
+          group_code: string | null
+          group_name: string | null
+          inactive: number | null
+          item_code: string
+          max_discount_pct: number | null
+          measurement_unit: string | null
+          midwich_family_code: string | null
+          midwich_family_name: string | null
+          refreshed_at: string
+          retail_price: number | null
+          sub_activity: string | null
+          sub_category_code: string | null
+          sub_category_name: string | null
+          supplier_code: string | null
+          webactive: number | null
+        }
+        Insert: {
+          alternative_code?: string | null
+          alternative_description?: string | null
+          b2b?: number | null
+          brand_activity?: string | null
+          category_code?: string | null
+          category_name?: string | null
+          description?: string | null
+          entity_code: string
+          family_code?: string | null
+          family_name?: string | null
+          group_code?: string | null
+          group_name?: string | null
+          inactive?: number | null
+          item_code: string
+          max_discount_pct?: number | null
+          measurement_unit?: string | null
+          midwich_family_code?: string | null
+          midwich_family_name?: string | null
+          refreshed_at?: string
+          retail_price?: number | null
+          sub_activity?: string | null
+          sub_category_code?: string | null
+          sub_category_name?: string | null
+          supplier_code?: string | null
+          webactive?: number | null
+        }
+        Update: {
+          alternative_code?: string | null
+          alternative_description?: string | null
+          b2b?: number | null
+          brand_activity?: string | null
+          category_code?: string | null
+          category_name?: string | null
+          description?: string | null
+          entity_code?: string
+          family_code?: string | null
+          family_name?: string | null
+          group_code?: string | null
+          group_name?: string | null
+          inactive?: number | null
+          item_code?: string
+          max_discount_pct?: number | null
+          measurement_unit?: string | null
+          midwich_family_code?: string | null
+          midwich_family_name?: string | null
+          refreshed_at?: string
+          retail_price?: number | null
+          sub_activity?: string | null
+          sub_category_code?: string | null
+          sub_category_name?: string | null
+          supplier_code?: string | null
+          webactive?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "erp_items_entity_code_fkey"
+            columns: ["entity_code"]
+            isOneToOne: false
+            referencedRelation: "entities"
+            referencedColumns: ["code"]
+          },
+        ]
       }
       erp_items_staging: {
         Row: {
-          b2b: string | null
+          alternative_code: string | null
+          alternative_description: string | null
+          b2b: number | null
           batch_id: string
+          brand_activity: string | null
+          category_code: string | null
           category_name: string | null
           created_by: string
+          description: string | null
+          entity_code: string
+          family_code: string | null
           family_name: string | null
+          group_code: string | null
           group_name: string | null
-          inactive: string | null
+          inactive: number | null
           item_code: string
+          max_discount_pct: number | null
           measurement_unit: string | null
-          midwich_family: string | null
-          refreshed_at: string
+          midwich_family_code: string | null
+          midwich_family_name: string | null
+          retail_price: number | null
+          sub_activity: string | null
+          sub_category_code: string | null
           sub_category_name: string | null
-          webactive: string | null
+          supplier_code: string | null
+          webactive: number | null
         }
         Insert: {
-          b2b?: string | null
+          alternative_code?: string | null
+          alternative_description?: string | null
+          b2b?: number | null
           batch_id: string
+          brand_activity?: string | null
+          category_code?: string | null
           category_name?: string | null
           created_by?: string
+          description?: string | null
+          entity_code: string
+          family_code?: string | null
           family_name?: string | null
+          group_code?: string | null
           group_name?: string | null
-          inactive?: string | null
+          inactive?: number | null
           item_code: string
+          max_discount_pct?: number | null
           measurement_unit?: string | null
-          midwich_family?: string | null
-          refreshed_at?: string
+          midwich_family_code?: string | null
+          midwich_family_name?: string | null
+          retail_price?: number | null
+          sub_activity?: string | null
+          sub_category_code?: string | null
           sub_category_name?: string | null
-          webactive?: string | null
+          supplier_code?: string | null
+          webactive?: number | null
         }
         Update: {
-          b2b?: string | null
+          alternative_code?: string | null
+          alternative_description?: string | null
+          b2b?: number | null
           batch_id?: string
+          brand_activity?: string | null
+          category_code?: string | null
           category_name?: string | null
           created_by?: string
+          description?: string | null
+          entity_code?: string
+          family_code?: string | null
           family_name?: string | null
+          group_code?: string | null
           group_name?: string | null
-          inactive?: string | null
+          inactive?: number | null
           item_code?: string
+          max_discount_pct?: number | null
           measurement_unit?: string | null
-          midwich_family?: string | null
-          refreshed_at?: string
+          midwich_family_code?: string | null
+          midwich_family_name?: string | null
+          retail_price?: number | null
+          sub_activity?: string | null
+          sub_category_code?: string | null
           sub_category_name?: string | null
-          webactive?: string | null
+          supplier_code?: string | null
+          webactive?: number | null
         }
         Relationships: []
       }
-      export_audit: {
+      exchange_rates: {
         Row: {
-          export_id: string
-          rule_snapshot: Json
+          entity_code: string
+          from_currency: string
+          rate: number
+          updated_at: string
+          updated_by: string | null
         }
         Insert: {
-          export_id: string
-          rule_snapshot: Json
+          entity_code: string
+          from_currency: string
+          rate: number
+          updated_at?: string
+          updated_by?: string | null
         }
         Update: {
-          export_id?: string
-          rule_snapshot?: Json
-        }
-        Relationships: [
-          {
-            foreignKeyName: "export_audit_export_id_fkey"
-            columns: ["export_id"]
-            isOneToOne: true
-            referencedRelation: "exports"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      exports: {
-        Row: {
-          created_at: string
-          entity_code: string
-          id: string
-          row_count: number
-          rows: Json | null
-          upload_id: string | null
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          entity_code: string
-          id?: string
-          row_count?: number
-          rows?: Json | null
-          upload_id?: string | null
-          user_id?: string
-        }
-        Update: {
-          created_at?: string
           entity_code?: string
-          id?: string
-          row_count?: number
-          rows?: Json | null
-          upload_id?: string | null
-          user_id?: string
+          from_currency?: string
+          rate?: number
+          updated_at?: string
+          updated_by?: string | null
         }
         Relationships: [
           {
-            foreignKeyName: "exports_upload_id_fkey"
-            columns: ["upload_id"]
-            isOneToOne: false
-            referencedRelation: "uploads"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      pricing_rule_entities: {
-        Row: {
-          cost_basis: string
-          entity_code: string
-          ex_rate: number
-          overhead_pct: number
-          retail_method: string
-          round_to: number
-          rule_id: string
-        }
-        Insert: {
-          cost_basis?: string
-          entity_code: string
-          ex_rate: number
-          overhead_pct?: number
-          retail_method?: string
-          round_to?: number
-          rule_id: string
-        }
-        Update: {
-          cost_basis?: string
-          entity_code?: string
-          ex_rate?: number
-          overhead_pct?: number
-          retail_method?: string
-          round_to?: number
-          rule_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "pricing_rule_entities_entity_code_fkey"
+            foreignKeyName: "exchange_rates_entity_code_fkey"
             columns: ["entity_code"]
             isOneToOne: false
             referencedRelation: "entities"
             referencedColumns: ["code"]
           },
           {
-            foreignKeyName: "pricing_rule_entities_rule_id_fkey"
-            columns: ["rule_id"]
+            foreignKeyName: "exchange_rates_from_currency_fkey"
+            columns: ["from_currency"]
             isOneToOne: false
-            referencedRelation: "pricing_rules"
+            referencedRelation: "currencies"
+            referencedColumns: ["code"]
+          },
+        ]
+      }
+      mapping_corrections: {
+        Row: {
+          ai_value: string | null
+          brand_activity: string | null
+          created_at: string
+          field: string | null
+          headers: Json | null
+          id: string
+          user_value: string | null
+        }
+        Insert: {
+          ai_value?: string | null
+          brand_activity?: string | null
+          created_at?: string
+          field?: string | null
+          headers?: Json | null
+          id?: string
+          user_value?: string | null
+        }
+        Update: {
+          ai_value?: string | null
+          brand_activity?: string | null
+          created_at?: string
+          field?: string | null
+          headers?: Json | null
+          id?: string
+          user_value?: string | null
+        }
+        Relationships: []
+      }
+      output_rows: {
+        Row: {
+          checks: Json | null
+          current_erp_retail: number | null
+          entity_code: string
+          id: string
+          names: Json | null
+          row_no: number
+          submission_id: string
+          values: Json
+        }
+        Insert: {
+          checks?: Json | null
+          current_erp_retail?: number | null
+          entity_code: string
+          id?: string
+          names?: Json | null
+          row_no: number
+          submission_id: string
+          values: Json
+        }
+        Update: {
+          checks?: Json | null
+          current_erp_retail?: number | null
+          entity_code?: string
+          id?: string
+          names?: Json | null
+          row_no?: number
+          submission_id?: string
+          values?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "output_rows_submission_id_fkey"
+            columns: ["submission_id"]
+            isOneToOne: false
+            referencedRelation: "submissions"
             referencedColumns: ["id"]
           },
         ]
@@ -289,91 +570,273 @@ export type Database = {
         Row: {
           active: boolean
           brand_activity: string
-          cost_method: string
-          discount_pct: number
+          compare_with_msrp: boolean
+          entity_code: string
           id: string
-          is_test: boolean
           margin_divisors: number[]
           max_discount_pct: number | null
-          sub_activity: string
+          method: string
+          overhead_pct: number
+          round_to: number
+          source_entity: string | null
+          sub_activity: string | null
           updated_at: string
           updated_by: string | null
-          vendor_currency: string
         }
         Insert: {
           active?: boolean
           brand_activity: string
-          cost_method: string
-          discount_pct?: number
+          compare_with_msrp?: boolean
+          entity_code: string
           id?: string
-          is_test?: boolean
-          margin_divisors: number[]
+          margin_divisors?: number[]
           max_discount_pct?: number | null
-          sub_activity: string
+          method?: string
+          overhead_pct?: number
+          round_to?: number
+          source_entity?: string | null
+          sub_activity?: string | null
           updated_at?: string
           updated_by?: string | null
-          vendor_currency: string
         }
         Update: {
           active?: boolean
           brand_activity?: string
-          cost_method?: string
-          discount_pct?: number
+          compare_with_msrp?: boolean
+          entity_code?: string
           id?: string
-          is_test?: boolean
           margin_divisors?: number[]
           max_discount_pct?: number | null
-          sub_activity?: string
+          method?: string
+          overhead_pct?: number
+          round_to?: number
+          source_entity?: string | null
+          sub_activity?: string | null
           updated_at?: string
           updated_by?: string | null
-          vendor_currency?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "pricing_rules_brand_activity_fkey"
+            columns: ["brand_activity"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["brand_activity"]
+          },
+          {
+            foreignKeyName: "pricing_rules_entity_code_fkey"
+            columns: ["entity_code"]
+            isOneToOne: false
+            referencedRelation: "entities"
+            referencedColumns: ["code"]
+          },
+        ]
       }
-      uploads: {
+      sub_activities: {
         Row: {
-          ai_response: Json | null
-          brand_activity: string | null
-          counts: Json | null
-          created_at: string
-          detected_rows: Json | null
-          file_name: string | null
-          file_path: string | null
-          id: string
-          mapping: Json | null
-          tool: string
-          user_id: string
-          vendor_currency: string | null
+          active: boolean
+          brand_activity: string
+          sub_activity: string
         }
         Insert: {
-          ai_response?: Json | null
-          brand_activity?: string | null
-          counts?: Json | null
-          created_at?: string
-          detected_rows?: Json | null
-          file_name?: string | null
-          file_path?: string | null
-          id?: string
-          mapping?: Json | null
-          tool: string
-          user_id?: string
-          vendor_currency?: string | null
+          active?: boolean
+          brand_activity: string
+          sub_activity: string
         }
         Update: {
-          ai_response?: Json | null
+          active?: boolean
+          brand_activity?: string
+          sub_activity?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sub_activities_brand_activity_fkey"
+            columns: ["brand_activity"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["brand_activity"]
+          },
+        ]
+      }
+      submission_rows: {
+        Row: {
+          alternate_description: string | null
+          alternative_code: string | null
+          brand_activity: string | null
+          checks: Json | null
+          cost_currency: string
+          cost_price: number | null
+          description: string | null
+          entity_code: string
+          id: string
+          item_code: string
+          measurement_unit: string | null
+          row_no: number
+          sub_activity: string | null
+          submission_id: string
+          vendor_msrp: number | null
+        }
+        Insert: {
+          alternate_description?: string | null
+          alternative_code?: string | null
           brand_activity?: string | null
+          checks?: Json | null
+          cost_currency: string
+          cost_price?: number | null
+          description?: string | null
+          entity_code: string
+          id?: string
+          item_code: string
+          measurement_unit?: string | null
+          row_no: number
+          sub_activity?: string | null
+          submission_id: string
+          vendor_msrp?: number | null
+        }
+        Update: {
+          alternate_description?: string | null
+          alternative_code?: string | null
+          brand_activity?: string | null
+          checks?: Json | null
+          cost_currency?: string
+          cost_price?: number | null
+          description?: string | null
+          entity_code?: string
+          id?: string
+          item_code?: string
+          measurement_unit?: string | null
+          row_no?: number
+          sub_activity?: string | null
+          submission_id?: string
+          vendor_msrp?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "submission_rows_submission_id_fkey"
+            columns: ["submission_id"]
+            isOneToOne: false
+            referencedRelation: "submissions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      submissions: {
+        Row: {
+          brand_activity: string
+          conversion_id: string | null
+          counts: Json | null
+          created_at: string
+          entities: Json
+          file_path: string | null
+          id: string
+          output_path: string | null
+          review_comment: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          source: string
+          status: string
+          submitted_at: string | null
+          user_id: string
+        }
+        Insert: {
+          brand_activity: string
+          conversion_id?: string | null
           counts?: Json | null
           created_at?: string
-          detected_rows?: Json | null
-          file_name?: string | null
+          entities?: Json
           file_path?: string | null
           id?: string
-          mapping?: Json | null
-          tool?: string
+          output_path?: string | null
+          review_comment?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          source: string
+          status?: string
+          submitted_at?: string | null
           user_id?: string
-          vendor_currency?: string | null
         }
-        Relationships: []
+        Update: {
+          brand_activity?: string
+          conversion_id?: string | null
+          counts?: Json | null
+          created_at?: string
+          entities?: Json
+          file_path?: string | null
+          id?: string
+          output_path?: string | null
+          review_comment?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          source?: string
+          status?: string
+          submitted_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "submissions_conversion_id_fkey"
+            columns: ["conversion_id"]
+            isOneToOne: false
+            referencedRelation: "conversions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tickets: {
+        Row: {
+          brand_activity: string | null
+          created_at: string
+          currency: string | null
+          entity_code: string | null
+          id: string
+          kind: string
+          note: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+          row_count: number
+          status: string
+          sub_activity: string | null
+          submission_id: string | null
+        }
+        Insert: {
+          brand_activity?: string | null
+          created_at?: string
+          currency?: string | null
+          entity_code?: string | null
+          id?: string
+          kind: string
+          note?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          row_count?: number
+          status?: string
+          sub_activity?: string | null
+          submission_id?: string | null
+        }
+        Update: {
+          brand_activity?: string | null
+          created_at?: string
+          currency?: string | null
+          entity_code?: string | null
+          id?: string
+          kind?: string
+          note?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          row_count?: number
+          status?: string
+          sub_activity?: string | null
+          submission_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tickets_submission_id_fkey"
+            columns: ["submission_id"]
+            isOneToOne: false
+            referencedRelation: "submissions"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_roles: {
         Row: {
@@ -401,6 +864,7 @@ export type Database = {
           id: string
           last_used_at: string
           mapping: Json
+          times_used: number
         }
         Insert: {
           brand_activity: string
@@ -409,6 +873,7 @@ export type Database = {
           id?: string
           last_used_at?: string
           mapping: Json
+          times_used?: number
         }
         Update: {
           brand_activity?: string
@@ -417,6 +882,7 @@ export type Database = {
           id?: string
           last_used_at?: string
           mapping?: Json
+          times_used?: number
         }
         Relationships: []
       }
@@ -441,7 +907,22 @@ export type Database = {
         }
         Returns: undefined
       }
-      count_erp_matches: { Args: { codes: string[] }; Returns: number }
+      erp_check: {
+        Args: { codes: string[] }
+        Returns: {
+          code: string
+          description: string
+          in_erp: boolean
+        }[]
+      }
+      erp_entity_stats: {
+        Args: never
+        Returns: {
+          active_count: number
+          entity_code: string
+          row_count: number
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -449,29 +930,23 @@ export type Database = {
         }
         Returns: boolean
       }
-      list_activities: {
+      list_brands: {
         Args: never
         Returns: {
           brand_activity: string
-          cost_method: string
-          entity_codes: string[]
-          sub_activity: string
-          vendor_currency: string
+          default_unit: string
+          sub_activities: string[]
         }[]
       }
-      replace_erp_items: {
-        Args: { _batch_id: string; _expected_count: number }
-        Returns: number
-      }
-      save_erp_export: {
+      swap_erp_items: {
         Args: {
+          _batch_id: string
           _entity_code: string
-          _rows: Json
-          _snapshot: Json
-          _upload_id: string
+          _expected_count: number
+          _file_name: string
           _user_id: string
         }
-        Returns: string
+        Returns: number
       }
     }
     Enums: {

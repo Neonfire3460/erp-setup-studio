@@ -1,24 +1,16 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { ComingNext } from "@/components/ComingNext";
 
 export const Route = createFileRoute("/_authenticated/convert")({
   head: () => ({
     meta: [
       { title: "Convert · NMK Unite" },
-      { name: "description", content: "Convert page of the NMK Unite workspace." },
+      { name: "description", content: "Turn a vendor pricelist into a submission." },
       { property: "og:title", content: "Convert · NMK Unite" },
-      { property: "og:description", content: "Convert page of the NMK Unite workspace." },
+      { property: "og:description", content: "Turn a vendor pricelist into a submission." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
     ],
   }),
-  component: Page,
+  component: () => <ComingNext title="Convert" text="Turn a vendor pricelist into a submission." />,
 });
-
-function Page() {
-  return (
-    <div>
-      <h1 className="nmk-page-heading">Convert</h1>
-      <p className="mt-2 text-sm text-muted-foreground">Not built yet.</p>
-    </div>
-  );
-}

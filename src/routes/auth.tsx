@@ -39,7 +39,7 @@ function AuthPage() {
     if (mode === "signin") {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) setError(error.message);
-      else navigate({ to: "/convert" });
+      else navigate({ to: "/catalogue" });
     } else {
       const { data, error } = await supabase.auth.signUp({
         email,
@@ -47,7 +47,7 @@ function AuthPage() {
         options: { emailRedirectTo: window.location.origin },
       });
       if (error) setError(error.message);
-      else if (data.session) navigate({ to: "/convert" });
+      else if (data.session) navigate({ to: "/catalogue" });
       else setMessage("Check your email to confirm your account, then sign in.");
     }
     setBusy(false);
