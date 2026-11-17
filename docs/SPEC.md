@@ -1,277 +1,306 @@
-# NMK Pricelist to ERP: build spec
+# NMK Unite: build spec (version 2)
 
-Internal web app. Brand managers upload vendor pricelists (Excel, any layout). The app produces one fully filled Excel file per company entity in the ERP upload template. There is NO connection to the ERP: files are downloaded (SFTP comes later, out of scope).
+Internal web app for NMK. It turns vendor pricelists into a fully filled ERP item upload, one sheet per company entity. Users never see the pricing maths or the final file: an admin reviews and approves every submission. There is no ERP connection yet (an SFTP link comes later, section 15).
 
-Two tools share one file format, the **input template**:
+## 1. How it works
 
-- **Tool 1, Convert:** vendor pricelist -> AI proposes column mapping -> user confirms -> review table -> download Excel in the input template. The user edits it in Excel and adds Sub Activity.
-- **Tool 2, Build:** user re-uploads the edited input template (or one filled by hand) -> picks entities -> backend prices each row per entity and adds ERP fields -> review -> download one ERP Excel per entity.
+```
+Convert (vendor pricelist, AI)  ─┐
+                                 ├─> submission (simple template rows, per entity) ─> processing ─> tickets? ─> admin review ─> approved ERP file (admin only)
+Build (user fills a template)  ──┘
+                                                                                                                     └─> Catalogue (all users: approved items, retail price, category names)
+```
+
+- **Convert:** the user uploads a vendor pricelist. The app finds the item codes, prices and descriptions, asks the user to pick the price when there are several, can suggest better descriptions with AI, and shows a review table. The user fills what is missing (Sub Activity), checks and approves. That creates a submission.
+- **Build:** the user picks a brand, a currency and entities, downloads a template with one sheet per entity, fills it in Excel and uploads it. That creates a submission.
+- **Processing** (backend, `processing.ts`): adds Supplier, Det. Description, Retail Price, Max Discount, the category codes and flags for each entity. If a calculation, exchange rate or supplier code is missing, it opens a **ticket** for the admins.
+- **Admin review:** an admin checks the result and approves or rejects it. Approval produces the final ERP file, which only admins can download.
+- **Catalogue:** every user can browse the approved items by entity and brand, with the retail price the system calculated and the category names.
 
 Golden rules:
 
-1. The AI only proposes the layout of a sheet. It never returns prices, item codes or descriptions. Every value is copied from the cells by `src/lib/sheetParser.ts`.
-2. Pricing rules (discounts, exchange rates, overheads, margins) are confidential. They are readable by admins only and are used only inside backend functions. They must never be sent to the browser of a normal user.
-3. Use the two attached code files verbatim. Do not rewrite their logic.
-4. Plain, clean UI with the default component library. No landing page, no animations, no extra features.
+1. The AI only proposes sheet layouts and description wording. It never creates or changes item codes or prices. Every value is copied from cells by code.
+2. Pricing rules, exchange rates, tickets, output rows, ERP data and the final files are admin only. Rates, overheads, margins and costs never reach a normal user's browser, in any API response. The only retail prices users see are those of APPROVED items, on the Catalogue page.
+3. Use the attached code files as they are: `src/lib/sheetParser.ts`, `src/lib/convertRules.ts`, `src/lib/excelFiles.ts` (browser) and `supabase/functions/_shared/pricing.ts`, `supabase/functions/_shared/processing.ts` (backend only). Import and call them; never re-implement their logic.
+4. Look and components follow `docs/DESIGN.md`.
 
-## 1. Roles and access
+## 2. Roles and menu
 
-- Email and password login. No public sign-up page content beyond login and sign-up.
-- Roles in a separate `user_roles` table: `admin`, `user`. The first account created becomes admin. Admins can change roles.
-- `user`: Tool 1, Tool 2, own history.
-- `admin`: everything, plus the Admin area and everyone's history.
+- Email and password login. Roles in `user_roles`: `admin`, `user`. The first account is admin; admins change roles in Admin > Users.
+- `user` menu: **Catalogue**, **Convert**, **Build**, **My submissions**.
+- `admin` menu adds: **Review queue** (badge: submissions in review), **Tickets** (badge: open tickets), and **Admin** with Pricing rules, Exchange rates, Brands and suppliers, Entities and currencies, ERP data, Settings, Users, Pricing self-test.
 
-## 2. Database
+## 3. Database
 
-Row level security on every table.
+Row level security on every table. "Admin only" means no access at all for `user`.
 
 | Table | Columns | Access |
 | --- | --- | --- |
-| `entities` | `code` (pk, text), `name`, `region`, `currency`, `sort_order` | read: signed in; write: admin |
-| `brands` | `brand_activity` (pk), `default_unit` (nullable) | read: signed in; write: admin |
-| `brand_suppliers` | `brand_activity`, `entity_code`, `supplier` (text for the ERP Supplier column). Pk (`brand_activity`, `entity_code`). The supplier code differs per entity | read: signed in; write: admin |
-| `pricing_rules` | `id`, `brand_activity`, `sub_activity`, `vendor_currency`, `cost_method` (`discount_from_msrp` or `net_price`), `discount_pct`, `margin_divisors` (numeric array), `max_discount_pct` (nullable), `is_test` (bool), `active` (bool), `updated_at`, `updated_by`. Unique on (`brand_activity`, `sub_activity`, `vendor_currency`) | **admin only**, read and write |
-| `pricing_rule_entities` | `rule_id`, `entity_code`, `ex_rate`, `overhead_pct`, `cost_basis` (`vendor_price` or `local_msrp`, default `vendor_price`), `retail_method` (`calculate` or `local_msrp`, default `calculate`), `round_to` (numeric, default 1). Pk (`rule_id`, `entity_code`). No row means the rule is not available for that entity | **admin only** |
-| `erp_items` | `item_code` (pk, stored trimmed and upper case), `family_name`, `group_name`, `category_name`, `sub_category_name`, `midwich_family`, `measurement_unit`, `inactive`, `webactive`, `b2b` (all text), `refreshed_at` | read: signed in; write: admin |
-| `vendor_profiles` | `id`, `brand_activity`, `header_signature`, `mapping` (json), `created_by`, `last_used_at` | read and write: signed in |
-| `uploads` | `id` (uuid, this is the batch id), `tool` (`convert` or `build`), `user_id`, `brand_activity`, `vendor_currency`, `file_name`, `file_path`, `mapping` (json), `ai_response` (json), `counts` (json), `detected_rows` (json), `created_at` | owner and admin |
-| `exports` | `id`, `upload_id`, `user_id`, `entity_code`, `row_count`, `rows` (json, the final ERP rows), `created_at` | owner and admin |
-| `export_audit` | `export_id`, `rule_snapshot` (json: the rules and rates used) | **admin only** |
+| `entities` | `code` (pk text), `name`, `region` (`Middle East`, `South East Asia`), `currency` (selling currency), `sort_order`, `active` | read: signed in; write: admin |
+| `currencies` | `code` (pk, ISO), `name`, `active`, `sort_order` | read: signed in; write: admin |
+| `brands` | `brand_activity` (pk), `default_unit` (nullable), `active` | read: signed in; write: admin |
+| `sub_activities` | `brand_activity`, `sub_activity`, `active`. Pk (`brand_activity`, `sub_activity`) | read: signed in; write: admin |
+| `brand_suppliers` | `brand_activity`, `entity_code`, `supplier`. Pk (`brand_activity`, `entity_code`) | read: signed in; write: admin |
+| `exchange_rates` | `from_currency`, `entity_code`, `rate` (1 unit of from_currency in the entity's currency), `updated_at`, `updated_by`. Pk (`from_currency`, `entity_code`). Same currency is always 1 and needs no row | admin only |
+| `pricing_rules` | `id`, `brand_activity`, `sub_activity` (null = every sub activity of the brand), `entity_code`, `method` (default `calculate`; processing.ts also supports `same_as_entity` with `source_entity`, not offered in the UI for now), `source_entity`, `overhead_pct`, `margin_divisors` (numeric[]), `round_to` (default 1), `max_discount_pct` (nullable), `compare_with_msrp` (bool, default false), `active`, `updated_at`, `updated_by`. Unique (`brand_activity`, coalesce(`sub_activity`,''), `entity_code`) | admin only |
+| `app_settings` | `key` (pk), `value` (json). Keys: `default_inactive` 0, `default_webactive` 0, `default_b2b` 0 (flags for items NOT in the ERP data), `retail_change_warn_pct` 20 | admin only |
+| `erp_items` | `entity_code`, `item_code`, and every field of `ErpItem` in excelFiles.ts as snake_case columns (codes AND names of the categories, flags), `refreshed_at`. Pk (`entity_code`, `item_code`), index on upper(`item_code`) | admin only |
+| `erp_imports` | `id`, `entity_code`, `file_name`, `row_count`, `imported_at`, `imported_by` | admin only |
+| `submissions` | `id` (uuid), `user_id`, `source` (`build` or `convert`), `conversion_id` (nullable), `brand_activity`, `entities` (json: `[{entity_code, cost_currency}]`), `status` (section 6.5), `file_path`, `counts` (json), `created_at`, `submitted_at`, `reviewed_by`, `reviewed_at`, `review_comment`, `output_path` | owner: read, insert, delete while not approved; admin: all |
+| `submission_rows` | `id`, `submission_id`, `entity_code`, `cost_currency`, `row_no`, `item_code`, `alternative_code`, `description`, `alternate_description`, `brand_activity`, `sub_activity`, `cost_price`, `measurement_unit`, `vendor_msrp` (nullable, set by Convert), `checks` (json) | owner and admin |
+| `output_rows` | `id`, `submission_id`, `entity_code`, `row_no`, `values` (json, the 20 ERP columns), `names` (json, category names), `current_erp_retail`, `checks` (json) | admin only |
+| `catalogue_items` | `entity_code`, `item_code`, `brand_activity`, `sub_activity`, `alternative_code`, `description`, `alternate_description`, `retail_price`, `currency` (entity currency), `family_name`, `group_name`, `category_name`, `sub_category_name`, `midwich_family_name`, `submission_id`, `approved_at`. Pk (`entity_code`, `item_code`). Filled on approval (section 9) | read: signed in; write: backend only |
+| `tickets` | `id`, `submission_id`, `kind` (`pricing_rule`, `exchange_rate`, `supplier`), `brand_activity`, `sub_activity`, `entity_code`, `currency`, `row_count`, `note`, `status` (`open`, `resolved`), `created_at`, `resolved_at`, `resolved_by` | admin only |
+| `conversions` | `id`, `user_id`, `brand_activity`, `files` (json: per pricelist `{path, currency, price_type, discount_pct, mapping}`), `ai_response` (json), `detected_rows` (json), `created_at` | owner and admin |
+| `vendor_profiles` | `id`, `brand_activity`, `header_signature`, `mapping` (json), `times_used`, `created_by`, `last_used_at` | read and write: signed in |
+| `mapping_corrections` | `id`, `brand_activity`, `headers` (json: header texts of the sheet), `field`, `ai_value`, `user_value`, `created_at` | insert: signed in; read: backend only |
+| `description_examples` | `id`, `brand_activity`, `item_code`, `original`, `final`, `created_at` | insert: signed in; read: backend only |
 
-Storage bucket `pricelists` (private): original uploaded files, path `{user_id}/{upload_id}/{file_name}`.
+Storage, both private: `pricelists` (uploaded files, path `{user_id}/{id}/{file_name}`; owner and admin), `erp-outputs` (final ERP files; admin only).
 
-Two database functions, callable by any signed-in user, that expose NO numbers:
+Database functions for signed-in users (security definer, they expose no prices):
 
-- `list_activities()` returns, for active rules: `brand_activity`, `sub_activity`, `vendor_currency`, `cost_method`, `entity_codes` (array). Security definer.
-- `count_erp_matches(codes text[])` returns how many of the given codes exist in `erp_items` (compare trimmed, upper case).
+- `list_brands()`: active brands with their active sub activities.
+- `erp_check(codes text[])`: for each code, whether it exists in `erp_items` (any entity, compare upper case) and its ERP description.
 
-## 3. Seed data
+## 4. Seed data
 
-Entities:
+- **Entities** (code, name, region, currency, sort order): 001 `NMK 001` Middle East AED 1; 011 `NMK 011` Middle East AED 2; 007 `EDGE 007` Middle East QAR 3; 008 `NMK KSA 008` Middle East SAR 4; 012 `Singapore 012` South East Asia SGD 5; 013 `Malaysia 013` South East Asia MYR 6; 014 `Indonesia 014` South East Asia IDR 7.
+- **Currencies**, all active in this order: AED, USD, EUR, SAR, QAR, GBP, SGD, MYR, IDR.
+- **Exchange rates** (USD to entity): 001 3.675, 011 3.675, 007 3.65, 008 3.75. Nothing else: missing rates open tickets.
+- **Brands and sub activities:** `Lightware / Lightware`, `Turtle AV / Turtle AV` (Turtle AV `default_unit` = `pc`). The ERP data import adds all the others.
+- **Brand suppliers:** Lightware 001 `SUP101045`, 011 `SUP100611`, 007 `SUP000160`, 008 `SUP002398`. Turtle AV 001 `SUP101021`, 011 `SUP000077`, 007 `SUP000377`, 008 `SUP002419`.
+- **Pricing rules:** Turtle AV, all sub activities, `calculate`, margin_divisors [0.50], round_to 1, max_discount_pct 25, overhead 001 10, 011 5, 007 15, 008 15.
+- **App settings** as listed in `app_settings`.
+- **Lightware** has no pricing rules on purpose: the Lightware test creates them through tickets, using NMK's formula (section 10.3).
 
-| code | name | region | currency |
-| --- | --- | --- | --- |
-| 001 | NMK 001 | Middle East | AED |
-| 011 | NMK 011 | Middle East | AED |
-| 007 | EDGE Qatar 007 | Middle East | QAR |
-| 008 | Saudi 008 | Middle East | SAR |
-| 012 | Singapore 012 | South East Asia | SGD |
-| 013 | Malaysia 013 | South East Asia | MYR |
-| 014 | Indonesia 014 | South East Asia | IDR |
+## 5. Files
 
-Pricing rules. Format per entity is `ex_rate / overhead_pct`. A dash means no row for that entity.
+### 5.1 Input template (what users fill)
 
-| brand_activity | sub_activity | currency | cost_method | discount_pct | 001 | 011 | 007 | 008 | margin_divisors | is_test |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Brightsign | Brightsign | USD | discount_from_msrp | 35 | 3.675 / 10 | 3.675 / 5 | 3.65 / 18 | 3.75 / 11 | 0.75, 0.75 | false |
-| Brightsign | Brightsign Service | USD | discount_from_msrp | 35 | 3.675 / 0 | 3.675 / 0 | 3.65 / 0 | 3.75 / 0 | 0.75, 0.75 | false |
-| LDA | LDA | EUR | discount_from_msrp | 50 | - | - | - | 4.5 / 18 | 0.50 | false |
-| LDA | LDA License | EUR | discount_from_msrp | 50 | - | - | - | 4.5 / 0 | 0.50 | false |
-| 7thSense | 7th Sense | USD | net_price | 0 | 3.675 / 8 | 3.675 / 5 | 3.65 / 10 | 3.75 / 10 | 0.60 | false |
-| 7thSense | 7th Sense Warranty | USD | net_price | 0 | 3.675 / 0 | 3.675 / 0 | 3.65 / 0 | 3.75 / 0 | 0.60 | false |
-| 7thSense | Medialon | USD | discount_from_msrp | 40 | 3.675 / 8 | 3.675 / 5 | 3.65 / 10 | 3.75 / 10 | 0.60 | false |
-| Ampetronic | Ampetronic | GBP | net_price | 0 | 5.1 / 16 | 5.1 / 11 | 5.1 / 16 | 5.2 / 16 | 0.50 | false |
-| Ampetronic | Listen | GBP | net_price | 0 | 5.1 / 16 | 5.1 / 11 | 5.1 / 16 | 5.2 / 16 | 0.50 | false |
-| Ampetronic | Auri | GBP | net_price | 0 | 5.1 / 16 | 5.1 / 11 | 5.1 / 16 | 5.2 / 16 | 0.50 | false |
-| Lightware | Lightware | USD | discount_from_msrp | 40 | 1 / 0 | 3.675 / 0 | 3.65 / 11 | 3.75 / 5 | 0.60 | false |
-| Turtle AV | Turtle AV | USD | net_price | 0 | 3.675 / 10 | 3.675 / 5 | 3.65 / 15 | 3.75 / 15 | 0.50 | false |
+Built by `buildTemplateWorkbook()` and read by `readTemplateWorkbook()` in excelFiles.ts. Do not build it any other way.
 
-All entity rows use `cost_basis` = `vendor_price`, `retail_method` = `calculate`, `round_to` = 1, EXCEPT Lightware:
+- One sheet per chosen entity, named `{entity name} ({cost currency})`, for example `NMK 001 (AED)`, `NMK KSA 008 (USD)`.
+- Row 1 headers, exactly: `Item Code | Alternative Code | Description | Alternate Description | Brand Activity | Sub Activity | Cost Price | Measurement Unit`.
+- Item Code is text. Sub Activity has a dropdown of the brand's sub activities (hidden `Lists` sheet). A very hidden `_meta` sheet records brand, and for every sheet its entity and cost currency.
+- `Cost Price` is NMK's buying price in that sheet's cost currency. `0` means price on request.
+- Copy rules (applied by `checkTemplateRows()` and `convertRules.ts`): empty Alternative Code = Item Code; empty Alternate Description = Description (and the other way round). Empty Brand Activity = the chosen brand.
+- File name: `{brand}_template_{yyyy-mm-dd}.xlsx`.
 
-| Lightware entity | cost_basis | retail_method | round_to |
-| --- | --- | --- | --- |
-| 001 | local_msrp | local_msrp | 1 |
-| 011 | vendor_price | local_msrp | 1 |
-| 007 | vendor_price | calculate | 100 |
-| 008 | vendor_price | calculate | 100 |
+### 5.2 Final ERP file (admin only)
 
-Lightware and Turtle AV have `max_discount_pct` = 25. These two rules were derived from NMK's real Lightware and Turtle AV ERP upload files and reproduce every row of them.
+Built by `buildErpWorkbook()`: one sheet per entity named after the entity (for example `NMK 001`), headers exactly as `ERP_HEADERS` (the 20 columns of `ERP-Upload-Template.xlsx`). Item Code and the five category columns are text; Cost Price, Retail Price, Max Discount, Inactive, Webactive, B2B are numbers. File name: `ERP_{brand}_{yyyy-mm-dd}_{short submission id}.xlsx`. Admins can also download a single entity's sheet as its own file.
 
-One more test rule for South East Asia: `DTEN / DTEN / USD / net_price / 0`, margin_divisors `0.70`, is_test true, entities `012: 1.35 / 10`, `013: 4.70 / 10`, `014: 16000 / 10`.
+### 5.3 ERP data import (admin)
 
-Brands: one row per brand_activity above, `default_unit` empty, except Turtle AV `default_unit` = `pc`. Rows marked `is_test` show a "TEST" badge in the admin screen.
+The ERP item export of one entity, for example the 001 export (about 200,000 rows, 23 columns, some header names repeat). Accept `.xlsx` and `.csv`:
 
-Brand suppliers (all other brand and entity pairs: `TO SET`):
+- `.csv` (recommended for big files; in Excel "Save as CSV UTF-8"): parse with **PapaParse** in a Web Worker, every value as text.
+- `.xlsx`: parse with **SheetJS** (`xlsx`, `dense: true`) in a Web Worker, rows as arrays. Never ExcelJS for this file: it runs out of memory.
+- Pass the rows to `readErpData(rows, entityCode)`. It finds the columns by header name (Group, Family and Category appear twice: as a code and as "code - name"; it tells them apart). Show its `problems` (for example "421 rows repeat an item code", or that a column named "Table 4" was read as Sub Activity). Stop when `ok` is false.
+- Replace that entity's rows atomically: insert into a staging table in batches of 1,000 with a progress bar, then one database function swaps them in a single transaction. A failed import leaves the old rows untouched.
+- Then add missing `brands` and `sub_activities` from `subActivities`, and add `brand_suppliers` for this entity from `suppliers` only where the brand has none yet (never overwrite). Both come from active items only.
+- Record an `erp_imports` row. The page shows per entity: rows, active rows, last import date and file.
 
-| brand_activity | 001 | 011 | 007 | 008 |
-| --- | --- | --- | --- | --- |
-| Lightware | SUP101045 | SUP100611 | SUP000160 | SUP002398 |
-| Turtle AV | SUP101021 | SUP000077 | SUP000377 | SUP002419 |
+What the ERP data gives each output row (done by `processSubmission`), matched on exact Item Code (trimmed, any case):
 
-## 4. File formats
-
-### 4.1 Input template (written by Tool 1, read by Tool 2)
-
-Sheet `Upload`, headers in row 1, exactly these and in this order:
-
-`Item Code | Alternative Code | Description | Alternate Description | Det. Description | Brand Activity | Sub Activity | Vendor Price | Local MSRP | Max Discount | Measurement Unit | Vendor Group | Vendor Note | Source`
-
-- `Item Code` cells are text format, so leading zeros survive.
-- `Vendor Price` is the price exactly as in the vendor pricelist, in the vendor's currency. Whether it is a vendor MSRP or a net buying price is decided by the pricing rule, not by the user.
-- `Brand Activity` is the same on every row (one brand per file).
-- `Sub Activity` is required. In files written by Tool 1 it is empty, highlighted yellow, with a dropdown fed from a hidden `Lists` sheet (the sub activities of that brand from `list_activities()`).
-- `Local MSRP` is optional: the vendor's MSRP in the local selling currency (for example Lightware's AED DDP price). It is required only for entities whose rule uses `local_msrp` as cost basis or retail method.
-- `Max Discount` is optional, 0 to 100.
-- `Vendor Group`, `Vendor Note`, `Source` are information only. Tool 2 ignores them.
-- A very hidden sheet `_meta` holds `batch_id`, `brand_activity`, `vendor_currency`.
-
-A "Download blank template" button gives the same workbook with no rows, for users who skip Tool 1.
-
-### 4.2 ERP upload file (final output of Tool 2)
-
-One workbook per entity, one sheet, headers in row 1 exactly as in the attached `ERP-Upload-Template.xlsx`:
-
-`Supplier | Item Code | Alternative Code | Description | Alternate Description | Det. Description | Brand Activity | Sub Activity | Cost Price | Retail Price | Max Discount | Family Name | Group Name | Category Name | Sub Category Name | Midwich Family | Measurement Unit | Inactive | Webactive | B2B`
-
-File name: `{entity_code}_{brand_activity}_{yyyy-mm-dd}.xlsx`.
-
-| Column | Source |
+| ERP file column | From the export |
 | --- | --- |
-| Supplier | `brand_suppliers.supplier` for this brand and entity |
-| Item Code to Det. Description, Brand Activity, Sub Activity | input template |
-| Cost Price | calculated: NMK buying price in the currency it was costed from (Vendor Price currency, or the local currency when cost_basis is `local_msrp`), 2 decimals |
-| Retail Price | per entity, in the entity currency: calculated and rounded up to `round_to`, or the row's Local MSRP when retail_method is `local_msrp` |
-| Max Discount | input template, else `pricing_rules.max_discount_pct`, else empty |
-| Family Name, Group Name, Category Name, Sub Category Name, Midwich Family, Inactive, Webactive, B2B | `erp_items` by item code. Empty if the item is not in `erp_items` |
-| Measurement Unit | input template, else `erp_items.measurement_unit`, else `brands.default_unit` |
+| Family Name, Group Name, Category Name, Sub Category Name, Midwich Family | the CODE versions (e.g. `02`, `0206`, `020602`, `L30130`, `06`) |
+| Inactive | `Inactive` as is (0 = active in the ERP, 1 = inactive) |
+| Webactive | `WEB` (1 = on the website, 0 = not) |
+| B2B | the same as `WEB` |
+| Measurement Unit | `MU`, when the template leaves it empty |
 
-Cell types in the ERP file: Item Code and the five category columns are text (keep leading zeros such as `01`); Cost Price, Retail Price, Max Discount, Inactive, Webactive and B2B are numbers.
+The NAME versions (`02 - Video`, `0206 - Controllers`, `020602 - Video Switchers`, `L30130 - Video Switchers`, `Other Accessories`) are kept in `output_rows.names` for the Catalogue. Items not in the ERP data get empty categories and the default flags from `app_settings` (0, 0, 0). For entities without their own ERP data, the 001 data is used.
 
-## 5. Tool 1: Convert
+## 6. Build
 
-1. **Upload form:** file (.xlsx), Brand Activity (dropdown from `list_activities()`), Vendor Currency (dropdown, required, always chosen by the user, never trusted from the file).
-   Optional second file: "Local MSRP pricelist" (for example Lightware's AED DDP file). It goes through the same mapping and confirm steps; its prices fill the `Local MSRP` column of matching item codes. Codes found in only one of the two files are listed as exceptions.
-2. **Read** the workbook in the browser with ExcelJS and `workbookToSheets()`. Save the original file to storage and create the `uploads` row. Hidden sheets are listed as "hidden, skipped" with a checkbox to include them.
-3. **Mapping** for each visible sheet, in this order:
-   - a. Saved profile: look in the first 60 rows for a row whose normalised cells (lower case, trimmed, joined with `|`) equal a `vendor_profiles.header_signature` of this brand. If found, use its mapping with that row as `headerRow`.
-   - b. Otherwise call the backend function `propose-mapping` once for the whole workbook (section 6).
-   - c. Run `validateMapping()` on every proposed mapping. If it fails, or the AI call fails, use `guessMapping()`. If that fails too, start with an empty mapping.
-4. **Confirm mapping screen**, one tab per sheet: first 15 rows of the sheet as a grid; dropdowns for header row, Item Code, Price, Description, Det. Description, Alternative Code, Unit, Notes, prefilled from step 3; the AI's confidence and warnings; for each item code candidate the text "X of Y codes already exist in the ERP" from `count_erp_matches`; a live count of items, exceptions and skipped rows that updates when a dropdown changes (`extractSheet()`); a toggle "Not a price table, skip this sheet". Button "Confirm" is disabled while `validateMapping()` reports problems.
-5. On confirm: `extractSheet()` per sheet, then `resolveDuplicates()` across sheets. Save `mapping`, `counts` and `detected_rows` on the upload. Save or update the vendor profile per sheet.
-6. **Review screen:**
-   - Summary strip per sheet: items, section titles, duplicates, skipped, exceptions, and all warnings.
-   - Table of rows with kind `item` and `exception`: Status, Item Code, Description, Det. Description, Vendor Price, Vendor Group, Vendor Note, Sheet, Row. Exceptions are amber with the reason. Filter by sheet and status, search box.
-   - Toggle "Show skipped rows" lists `category`, `header`, `note`, `duplicate` rows with their reason. `blank` rows are only counted.
-7. **Download Excel:** workbook per section 4.1 with all `item` rows in `Upload`, plus sheet `Check` (exception rows with reason, sheet and row) and sheet `Skipped` (skipped rows with reason). Then show: "Edit this file in Excel, fill Sub Activity, then upload it in Build."
+1. **Choices:** Brand (searchable dropdown from `list_brands()`), Vendor currency (active currencies), entities as cards grouped by region with "select all" per region. Each ticked entity has a small "Cost currency" dropdown that starts at the vendor currency and can be changed (Lightware: 001 is costed in AED, the others in USD).
+2. **Download template** with those choices (section 5.1, no rows).
+3. **Upload** the filled template. Read it in the browser with `readTemplateWorkbook()` (entities and currencies from the database; `defaultCurrency` = the chosen vendor currency, used only when `_meta` is missing). Show `problems` and stop if there are any. The brand comes from `_meta` when present and must match the chosen brand.
+4. **Check** each sheet with `checkTemplateRows()`. Show a summary strip per entity (rows, errors, warnings) and a table per entity tab with a status column. Errors block submitting; "Download rows with problems" gives an Excel of the failing rows with a `Problem` column. Warnings do not block.
+5. **Submit:** save the original file to `pricelists`, create the `submissions` row (status `submitted`) and the `submission_rows` (the checked rows, after the copy rules), then call `process-submission`. Show "Submitted. An admin will review it before it goes to the ERP."
+6. **My submissions** (users see their own, admins see all): brand, entities, rows, created, status, and the review comment when rejected. A user can delete a submission that is not approved, and "Use again" pre-fills Build with the same brand and entities. Users never see retail prices, rules or the final file.
 
-## 6. AI mapping (backend function `propose-mapping`)
+Statuses: `draft` (Convert not finished), `submitted`, `needs_pricing` (shown to users as "Waiting for pricing"), `in_review`, `approved`, `rejected`.
 
-- Uses the built-in Lovable AI connector. Model name in ONE constant `MAPPING_MODEL`; start with a top reasoning model from the available list. Temperature 0. Structured JSON output (tool calling or JSON schema).
-- Called at most once per workbook, and not at all when saved profiles cover every sheet.
-- **Input:** `brand_activity`, `preferred_price_kind` (`vendor_msrp` if all the brand's rules are `discount_from_msrp`, `buying_price` if all are `net_price`, else null), and `buildSheetSample()` of each visible sheet (max 8 sheets). Nothing else from the file is sent.
-- **Output schema:**
+## 7. Processing (backend function `process-submission`)
+
+Service role, callable by the owner (for their submission) and by admins. It must not return prices to the caller: it returns only the new status and counts.
+
+1. Load the submission rows, the entities, the brand's active `pricing_rules`, `exchange_rates`, the brand's `brand_suppliers`, `brands.default_unit`, `app_settings`, and the `erp_items` rows for the submitted item codes (all entities).
+2. Build the `ProcessContext` and call `processSubmission()` from processing.ts. The `erp` lookup returns the same entity's row when it exists, else the row of the first entity by `sort_order` that has the code (`sameEntity` false).
+3. Replace the submission's `output_rows` with `outputs`.
+4. For each item of `tickets`: if an open ticket with the same kind, brand, sub activity, entity and currency already exists for this submission, update its row_count; else insert one. Resolve this submission's open tickets that are no longer returned.
+5. Set status to the returned `status` (`needs_pricing` or `in_review`) and save counts (rows per entity, errors, warnings, tickets).
+
+## 8. Tickets (admin)
+
+The Tickets page lists open tickets, newest first: kind, brand, sub activity, entity (and its currency), cost currency, rows affected, submission and user. Opening one shows its note, 5 sample rows (item code, description, cost) and a form:
+
+- **pricing_rule:** Applies to: "this sub activity" or "all sub activities of {brand}". Overhead %, margin divisors (one or more, each between 0 and 1, shown as "÷ 0.75 ÷ 0.75"), round up to (1 = ROUNDUP 0, 10 = ROUNDUP -1, 100 = ROUNDUP -2, 1000 = ROUNDUP -3), max discount %, and the checkbox "Compare with vendor MSRP". A **Preview** button runs the calculation on the 5 sample rows without saving.
+- **exchange_rate:** "1 {currency} = ? {entity currency}".
+- **supplier:** the supplier code for this brand and entity.
+
+**Save and calculate** (backend function `resolve-ticket`, admin only): saves the rule, rate or supplier (upsert), resolves every open ticket with the same kind and key in any submission, and re-runs `process-submission` for each affected submission. A submission with no open tickets goes to `in_review`.
+
+## 9. Review queue and final output (admin)
+
+- The queue lists submissions `in_review`: brand, user, entities, rows, warnings, submitted.
+- The detail page has a summary strip and one tab per entity with the 20 ERP columns plus "ERP retail now" and "Change %" (from `current_erp_retail`) and a status column with the row checks. Filters: all, warnings, errors, price changes. Search box.
+- Buttons: **Approve** (disabled while any row has an error), **Reject** (comment required, shown to the user), **Recalculate** (re-runs `process-submission`, for example after editing a pricing rule), **Download draft** (same file as below, marked DRAFT in the file name).
+- **Approve:** build the ERP file in the admin's browser with `buildErpWorkbook()` from `output_rows`, upload it to `erp-outputs`, set `output_path`, `reviewed_by`, `reviewed_at`, status `approved`. Then a backend function upserts the submission's rows into `catalogue_items` (one row per entity and item code; a newer approval replaces an older one). An approved submission is locked.
+- Approved submissions keep a **Download ERP file** button (all entities) and a button per entity.
+
+### 9.1 Catalogue (all users)
+
+- Entity picker (default 001) and Brand (searchable, required), from `catalogue_items`.
+- Filters (dropdowns filled from the chosen brand's items): Sub Activity, Family, Group, Category, Sub Category, Midwich Family. A search box on Item Code, Alternative Code and Description.
+- Table columns, in this order: Item Code, Alternative Code, Description, Alternate Description, Retail Price (with the entity currency in the header), Family, Group, Category, Sub Category, Midwich Family. The category columns show the NAMES (`02 - Video`, `0206 - Controllers` ...), never only the codes.
+- Server-side filtering and paging (100 rows), sortable columns, a count ("413 items"), the last approval date, and **Download as Excel** of the filtered rows (same columns).
+- No cost, rule or rate appears on this page.
+
+## 10. Pricing
+
+### 10.1 The calculation (inside processing.ts, uses pricing.ts)
+
+- Cost Price = the user's Cost Price, in that entity's cost currency, 2 decimals.
+- Rule = the active rule for (brand, sub activity, entity), else the brand-wide rule for that entity (sub activity null), else a ticket.
+- `calculate`: retail = cost × exchange rate (cost currency to entity currency; 1 when the same) × (1 + overhead %), divided by each margin divisor in turn, rounded UP to a multiple of round_to (`safeRoundUp`).
+- `same_as_entity`: retail = the retail price of the same item in the source entity of the same submission.
+- Cost 0 (price on request) gives retail 0.
+- Max Discount = rule max_discount_pct, else the ERP data value, else empty.
+- When the rule has `compare_with_msrp` and Convert knew the vendor MSRP in the entity's own currency, a retail price different from that MSRP gets the warning "Retail price … is not the vendor MSRP …".
+
+### 10.2 Pricing self-test (Admin)
+
+A backend function runs these cases through `processSubmission()` with an in-memory context (it does not read the database rules) and shows pass or fail per line.
+
+| # | Brand | Entity (selling) | Cost currency | Cost | Rule | Rate | Expected retail |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 1 | Lightware | 001 (AED) | AED | 2700 | calculate, overhead 0, ÷0.60, round 1 | 1 | 4500 |
+| 2 | Lightware | 011 (AED) | AED | 2700 | calculate, overhead 0, ÷0.60, round 1 | 1 | 4500 |
+| 3 | Lightware | 007 (QAR) | USD | 720 | calculate, 11, ÷0.60, round 100 | 3.65 | 4900 |
+| 4 | Lightware | 008 (SAR) | USD | 720 | calculate, 5, ÷0.60, round 100 | 3.75 | 4800 |
+| 5 | Lightware | 008 (SAR) | USD | 0 | as case 4 | 3.75 | 0 |
+| 6 | Turtle AV | 001 (AED) | USD | 95.06 | calculate, 10, ÷0.50, round 1 | 3.675 | 769 |
+| 7 | Turtle AV | 008 (SAR) | USD | 95.06 | calculate, 15, ÷0.50, round 1 | 3.75 | 820 |
+| 8 | Brightsign | 008 (SAR) | USD | 650 | calculate, 11, ÷0.75 ÷0.75, round 1 | 3.75 | 4810 |
+| 9 | DTEN | 014 (IDR) | EUR | 100 | calculate, 10, ÷0.60, round 1 | 18000 | 3300000 |
+
+Cases 8 and 9 catch floating point errors: a plain `Math.ceil` gives 4811 and 3300001.
+
+### 10.3 NMK's Lightware formula (entered through tickets in the test)
+
+| Entity | Cost price | Cost currency | Overhead | Rate | Retail | Round up | Max discount |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 001 NMK 001 | 40% off the vendor MSRP (AED price list) | AED | 0% | 1.00 | landed ÷ 0.60 | to 1 (ROUNDUP 0); compare with vendor MSRP, should be equal | 25 |
+| 011 NMK 011 | 40% off the vendor MSRP (AED price list) | AED | 0% | 1.00 | landed ÷ 0.60 | to 1; compare with vendor MSRP | 25 |
+| 007 EDGE 007 | 40% off the vendor MSRP (USD price list) | USD | 11% | 3.65 | landed ÷ 0.60 | to 100 (ROUNDUP -2) | 25 |
+| 008 NMK KSA 008 | 40% off the vendor MSRP (USD price list) | USD | 5% | 3.75 | landed ÷ 0.60 | to 100 (ROUNDUP -2) | 25 |
+
+Landed cost = cost × rate × (1 + overhead).
+
+## 11. Admin pages
+
+- **Pricing rules:** table (brand, sub activity or "All", entity, overhead, divisors, round to, max discount, compare with MSRP, updated) with add, edit, deactivate, filter by brand.
+- **Exchange rates:** a grid, one row per active currency and one column per entity, editable.
+- **Brands and suppliers:** brand list with search; per brand: default unit, sub activities (add, rename, deactivate) and one supplier code per entity.
+- **Entities and currencies:** simple editable tables.
+- **ERP data:** per entity: upload (section 5.3), rows, last import.
+- **Settings:** the `app_settings` values.
+- **Users:** list, change role.
+- **Pricing self-test:** section 10.2.
+
+## 12. Convert
+
+1. **Setup:** Brand, the pricelist file (.xlsx) and its currency (always chosen by the user), and the entities with their cost currency (same picker as Build). If a ticked entity has a cost currency different from the pricelist, ask for a second pricelist in that currency (optional; without it those costs stay empty and must be filled before approval).
+2. **Read** each workbook in the browser with ExcelJS and `workbookToSheets()`. Save the files to `pricelists` and create the `conversions` row. Hidden sheets are listed as "hidden, skipped" with a checkbox to include them.
+3. **Mapping** per visible sheet: a saved vendor profile when a header row in the first 60 rows matches a `header_signature` of this brand; otherwise `propose-mapping` (section 13.1) once per workbook; then `applyCodeRule()`; then `validateMapping()`; if it fails, `guessMapping()`.
+4. **Confirm columns** (one tab per sheet): the first 15 rows as a grid; dropdowns for header row, Item Code, Alternative Code, Description, Alternate Description (long text), Unit, Notes, with a "Swap codes" button; for each code candidate "X of Y codes already in the ERP" (`erp_check`); live counts of items, exceptions and skipped rows (`extractSheet()`); "Not a price table, skip this sheet". When the user changes a column the AI proposed, save a `mapping_corrections` row.
+5. **Pick the price:** list every detected price column with its header, the AI's kind and 3 sample values. One column: preselected. Several: the user must pick one. Then "This price is" **NMK cost price** or **List price (MSRP) less discount** with a discount % field (AI kind `vendor_msrp` preselects the second). Same step for the second pricelist.
+6. **Extract:** `extractSheet()` per sheet, `resolveDuplicates()`, then `toTemplateRows()` with the price type and discount, and `combinePricelists()` for a second pricelist. Save `detected_rows` and the vendor profile per sheet.
+7. **AI descriptions (optional):** ask "Let AI suggest clearer descriptions?" Yes runs `suggest-descriptions` (section 13.2) in batches of 40 with a progress bar. Show Original and Suggested side by side, with Accept all, accept or edit per row. Accepted texts replace **Description** only; Alternate Description keeps the vendor's full text. Save each accepted or edited one to `description_examples`.
+8. **Review and complete:** one table: Item Code, Alternative Code, Description, Alternate Description, Sub Activity (required, dropdown, with "set for all selected rows"), Measurement Unit, a cost column per cost currency, status. Tabs for Exceptions (with reasons, from the parser and from `combinePricelists`) and Skipped rows. Inline editing. Checks: `checkTemplateRows()` per entity.
+9. **Approve and submit:** the user confirms "I checked this data". The app creates the submission (`source` = `convert`): one sheet per ticked entity with the cost of its cost currency (and `vendor_msrp` from `msrps` of that currency), then the same steps as Build 5. **Download as Excel** gives the same data as a filled template (section 5.1) for editing and uploading in Build instead.
+
+## 13. AI (built-in Lovable AI connector, backend functions)
+
+Temperature 0, structured JSON output, 20 second timeout. Model names in constants `MAPPING_MODEL` (a top reasoning model) and `DESCRIPTION_MODEL` (a fast model). On error return `{ "error": "..." }` and let the user continue without AI.
+
+### 13.1 `propose-mapping`
+
+- **Input:** `brand_activity`, `buildSheetSample()` of each visible sheet (max 8), and the last 10 `mapping_corrections` of this brand plus the last 10 of any brand as "past corrections". Nothing else from the file.
+- **Output:**
 
 ```json
-{
-  "sheets": [{
-    "sheet": "string",
-    "is_price_table": true,
-    "header_row": 5,
-    "item_code": "B",
-    "item_code_candidates": [{ "col": "B", "header": "Part number", "why": "string" }],
-    "alt_code": null,
-    "description": "C",
-    "det_description": "D",
-    "unit": null,
-    "notes": "G",
-    "price_columns": [{ "col": "E", "header": "MSRP USD Ex-work", "kind": "vendor_msrp", "currency": "USD" }],
-    "recommended_price": "E",
-    "currency": "USD",
-    "confidence": "high",
-    "warnings": ["string"]
-  }]
-}
+{ "sheets": [{
+  "sheet": "string", "is_price_table": true, "header_row": 5,
+  "item_code": "B", "alt_code": "C",
+  "item_code_candidates": [{ "col": "B", "header": "Part number", "why": "string" }],
+  "description": "D", "det_description": null, "unit": null, "notes": "G",
+  "price_columns": [{ "col": "E", "header": "MSRP USD Ex-work", "kind": "vendor_msrp", "currency": "USD" }],
+  "currency": "USD", "confidence": "high", "warnings": ["string"]
+}] }
 ```
-
-`kind` is one of `vendor_msrp`, `buying_price`, `suggested_resale`, `other`. `confidence` is `high`, `medium` or `low`. Columns are Excel letters, `header_row` is the Excel row number.
 
 - **System prompt (use as is):**
 
 ```text
-You map vendor pricelist spreadsheets for an audio-visual distributor. For each sheet you receive sample rows (with Excel row numbers and column letters) and statistics per column. Decide the LAYOUT only. Never invent, correct or return prices, item codes or descriptions.
+You map vendor pricelist spreadsheets for an audio-visual distributor. For each sheet you get sample rows (with Excel row numbers and column letters), statistics per column, and past corrections made by users. Decide the LAYOUT only. Never invent, correct or return prices, item codes or descriptions.
 
 For each sheet:
 1. is_price_table: false for cover pages, terms, change logs, or sheets without item codes and prices.
-2. header_row: the Excel row number of the first row that holds column titles. Sheets often repeat the header above each section; return the first one. Title or note rows above it are not headers.
-3. item_code: the column with the vendor's orderable code (SKU, part number, model). If several columns look like codes, list them all in item_code_candidates, best first, each with a reason under 15 words. Prefer the column that is filled on every item row and has unique values.
-4. description: the short product name. det_description: the longer text. With only one text column, use description and leave det_description null.
-5. alt_code, unit, notes: only when clearly present. A notes column often has no header and holds words such as "New", "Limited availability", "Call sales".
-6. price_columns: every column that holds money amounts. kind: vendor_msrp (MSRP, list, RRP), buying_price (distributor, dealer, net, cost, special price to the distributor), suggested_resale (suggested reseller or distributor selling price), other. Columns of margins, discounts or percentages (headers with % or margin, or values mostly below 1) are NOT price columns.
-7. recommended_price: the column matching preferred_price_kind. If preferred_price_kind is null or no column matches, return null and explain in warnings.
-8. currency: ISO code stated in headers, notes or symbols, else null. If sections state different currencies, say so in warnings.
-9. confidence: high only when the header row, item code and price column are unambiguous.
+2. header_row: the Excel row number of the first row with column titles. Sheets often repeat the header above each section; return the first one.
+3. item_code and alt_code: the columns that identify a product: part number, item code, SKU, model, product name. They hold short code-like values (few or no spaces). If there are two, item_code is the one further LEFT and alt_code the other. If there is one, alt_code is null. List all candidates in item_code_candidates, best first, with a reason under 15 words.
+4. description: descriptive text (sentences or long names with spaces). If there are two text columns, description is the shorter one and det_description the longer one; with one, det_description is null. A text column is never also item_code or alt_code.
+5. unit and notes only when clearly present. A notes column often has no header and holds words like "New", "EOL", "Call sales".
+6. price_columns: every column of money amounts. kind: vendor_msrp (MSRP, list, RRP), buying_price (distributor, dealer, net, cost, special price), suggested_resale (suggested reseller or distributor selling price), other. Margin, discount or percentage columns (headers with % or margin, values mostly below 1) are NOT price columns.
+7. currency: ISO code stated in headers, notes or symbols, else null. If sections state different currencies, say so in warnings.
+8. Follow the past corrections when the headers look alike.
+9. confidence: high only when header row, item code and the price columns are unambiguous.
 10. warnings: short and concrete, for example "Rows 33-38 have prices but no SKU".
 ```
 
-- The function returns the model's JSON unchanged plus the model name. The browser converts each sheet to a `SheetMapping` (`price` = `recommended_price`, or the first price column) and validates it (section 5 step 3c). The raw response is saved in `uploads.ai_response`.
-- On error or timeout (20 seconds) return `{ "error": "..." }`. The browser then falls back to `guessMapping()` and shows "AI unavailable, columns guessed from header names. Please check."
+- The browser turns each sheet into a `SheetMapping` (`price` = the column the user picks in step 5; before that the first `buying_price`, else the first price column), applies `applyCodeRule()` and validates it. Save the raw response in `conversions.ai_response`.
 
-## 7. Tool 2: Build
+### 13.2 `suggest-descriptions`
 
-1. **Upload form:** the input template file; Vendor Currency (prefilled from `_meta` when present); entity checkboxes grouped by region with "select all" per region. Only entities returned by `list_activities()` for this brand and currency can be ticked; the others are greyed with "no pricing rule".
-2. **Read and check in the browser:** sheet `Upload` (else the first sheet). Headers must match section 4.1 exactly; if not, stop and name the missing or renamed columns. Parse `Vendor Price`, `Local MSRP` and `Max Discount` with `toNumber()`.
-3. If `_meta.batch_id` matches an `uploads` row with `detected_rows`, show one line: "Compared with the detected data: N prices changed, N rows added, N rows removed."
-4. Call backend function `build-erp-rows` with brand_activity, vendor_currency, entity_codes and the rows. It runs with the service role and, for every entity and row:
-   - finds the active rule for (brand_activity, sub_activity, vendor_currency) and its `pricing_rule_entities` row;
-   - runs `calculatePrice()` from `pricing.ts` with `vendorPrice` = Local MSRP when the entity's cost_basis is `local_msrp`, else Vendor Price; `fixedRetail` = Local MSRP when retail_method is `local_msrp`, else null; `roundTo` = `round_to`;
-   - fills the ERP columns per section 4.2;
-   - returns the 20 ERP columns, `price_basis` ("MSRP less discount" or "Net price") and a list of checks. It never returns rates, overheads, discounts or divisors.
-5. **Checks.** Errors: Item Code empty; same Item Code twice in the file; Vendor Price not greater than 0; more than one Brand Activity in the file, or an unknown one; Sub Activity empty or without an active pricing rule for this currency; Max Discount outside 0 to 100; Local MSRP empty or not above 0 for an entity whose rule needs it; no `brand_suppliers` row for this brand and entity, or it is `TO SET`. Warnings: item not found in `erp_items` (ERP columns left empty); Measurement Unit empty; Description empty.
-6. **Review screen:** one tab per entity with the 20 columns, `price_basis` and a status column; counts of OK, warning and error rows. Download is blocked while errors exist. Button "Download rows with problems" gives an Excel of the failing input rows plus a `Problem` column. Button "Exclude N error rows and continue" is allowed.
-7. **Download:** one ERP Excel per entity (section 4.2), a button per entity. On download, save an `exports` row and an `export_audit` row.
+- **Input:** `brand_activity`; up to 15 style examples: the last accepted `description_examples` of this brand, then ERP descriptions of this brand from `erp_items`; and up to 40 rows `{item_code, alternative_code, description, alternate_description}`.
+- **Output:** `{ "items": [{ "item_code": "string", "description": "string" }] }`
+- **System prompt (use as is):**
 
-## 8. Pricing
+```text
+You write item descriptions for the ERP of an audio-visual distributor. For each item write ONE Description that is clear, distinctive and concise.
+- 25 to 60 characters, never more than 80.
+- Start with what the product is, then the model or product name (alternative_code), then the key fact that tells it apart from similar items: size, channel count, resolution, length, colour, licence term.
+- Use only facts found in the input. No marketing words, no prices, no trailing full stop.
+- Two items must never get the same Description.
+- Follow the style of the examples.
+Return every item_code you received, exactly once, unchanged.
+```
 
-All maths lives in `pricing.ts` (`calculatePrice`). Summary:
+- Code checks before showing: every item_code returned once and unchanged, text not empty and at most 80 characters, unique in the file (a duplicate gets " - {alternative_code}" appended, and is flagged if still duplicate). A failed row keeps the original text with "AI suggestion not usable". Item codes, prices and other fields are never taken from the AI.
 
-- buying price = `net_price`: Vendor Price. `discount_from_msrp`: Vendor Price x (1 - discount_pct / 100).
-- landed cost = buying price x ex_rate x (1 + overhead_pct / 100).
-- retail price = landed cost divided by each margin divisor in turn, then rounded UP to a multiple of `round_to` with `safeRoundUp`. When retail_method is `local_msrp`, the retail price is the row's Local MSRP instead.
-- cost basis `local_msrp` means the cost is worked out from Local MSRP instead of Vendor Price (Lightware 001 buys at 60% of the AED DDP price).
-- Cost Price in the output = buying price, vendor currency, 2 decimals.
+## 14. Acceptance numbers
 
-### Pricing test cases (must pass)
-
-| Rule | Vendor Price | Local MSRP | Entity | Cost Price | Retail Price |
-| --- | --- | --- | --- | --- | --- |
-| Brightsign / Brightsign / USD | 1000 | | 001 | 650.00 | 4672 |
-| Brightsign / Brightsign / USD | 1000 | | 008 | 650.00 | 4810 |
-| Ampetronic / Ampetronic / GBP | 200 | | 001 | 200.00 | 2367 |
-| Lightware / Lightware / USD | 1200 | 4500 | 001 | 2700.00 | 4500 |
-| Lightware / Lightware / USD | 1200 | 4500 | 011 | 720.00 | 4500 |
-| Lightware / Lightware / USD | 1200 | 4500 | 007 | 720.00 | 4900 |
-| Lightware / Lightware / USD | 1200 | 4500 | 008 | 720.00 | 4800 |
-| Turtle AV / Turtle AV / USD | 95.06 | | 001 | 95.06 | 769 |
-| Turtle AV / Turtle AV / USD | 95.06 | | 011 | 95.06 | 734 |
-| Turtle AV / Turtle AV / USD | 95.06 | | 007 | 95.06 | 799 |
-| Turtle AV / Turtle AV / USD | 95.06 | | 008 | 95.06 | 820 |
-| DTEN / DTEN / USD | 6246 | | 012 | 6246.00 | 13251 |
-
-Brightsign at 008 is the important one: a plain `Math.ceil` gives 4811, which is wrong. The Lightware and Turtle AV lines are real items from NMK's ERP files.
-
-## 9. Admin area
-
-- **Entities, Brands:** simple editable tables. Brands shows one supplier code per entity (from `brand_suppliers`).
-- **Pricing rules:** table with one row per rule and, per entity, rate, overhead, cost basis, retail method and rounding step; add, edit, deactivate. "TEST" badge for `is_test`.
-- **ERP master data:** upload an Excel export with the headers `Item Code, Family Name, Group Name, Category Name, Sub Category Name, Midwich Family, Measurement Unit, Inactive, Webactive, B2B`. It replaces all rows of `erp_items`. Show row count and last refresh date.
-- **Pricing self-test:** a button that runs the section 8 test cases through `build-erp-rows` and shows pass or fail per line.
-- **History:** all uploads and exports, with download of the original file and of the exported rows.
-
-## 10. Parser acceptance numbers
-
-With `extractSheet()` then `resolveDuplicates()`, the real sample files must give exactly:
+Parser (`extractSheet()` then `resolveDuplicates()`) on the sample pricelists:
 
 | File, sheet | Mapping | item | duplicate | exception | category | header |
 | --- | --- | --- | --- | --- | --- | --- |
-| Lightware USD Ex-work, `Category` | header 5, code B, price E, description C, det D, notes G | 410 | 28 | 26 | 93 | 64 |
-| Lightware AED DDP, `Category` | same | 413 | 31 | 18 | 92 | 64 |
-| Midwich SEA, `Pricebook for Midwich` | header 2, code B, price C, description A | 25 | 1 | 10 | 0 | 1 |
-| Midwich SEA, `Orbit Pro Pricebook` | header 1, code F, price H, description A | 22 | 0 | 0 | 0 | 1 |
+| Lightware USD Ex-work, `Category` | header 5, code B, alt code C, description D, price E, notes G | 415 | 38 | 11 | 93 | 64 |
+| Lightware AED DDP, `Category` | same | 417 | 41 | 4 | 92 | 64 |
+| Midwich SEA, `Pricebook for Midwich` | header 2, code B, description A, price C | 25 | 1 | 10 | 0 | 1 |
+| Midwich SEA, `Orbit Pro Pricebook` | header 1, code F, description A, price H | 22 | 0 | 0 | 0 | 1 |
 
-With the USD file as the main pricelist and the AED file as the Local MSRP pricelist, then priced with the Lightware rule, 405 items match NMK's real Lightware ERP upload exactly on all four entities; the other 8 are flagged for the user (6 codes listed twice with different prices, 2 priced "CALL").
+- 16 of the 415 Lightware USD items are price on request (cost 0). Using the AED file as second pricelist: 2 codes only in the USD file, 4 only in the AED file. With "List price less 40%": 91310115 costs USD 720.00 and AED 2700.00.
+- `applyCodeRule()` keeps Midwich's code in column B (column A holds long product names).
+- Build path: `Test-Lightware-template.xlsx` processed with the formula in 10.3 gives exactly `Expected-Lightware-final-output.xlsx` (4 sheets × 413 rows, all 20 columns). Against NMK's real Lightware ERP upload, 001, 007 and 008 are equal on every row from Supplier to Max Discount; 011 has the same retail prices, and its Cost Price is now in AED (2700 instead of 720 USD), as the formula says.
+- Convert path with both Lightware pricelists, the same rules and "compare with vendor MSRP" on 001 and 011: the same cost and retail as the Build path on all 1,630 shared rows; 8 MSRP warnings (4 licence items with MSRPs below 1 AED, in 001 and 011).
+- Flags and categories: for all 76 rows of NMK's Furman upload, the categories, unit, Inactive, Webactive and B2B produced from the 001 export are equal to the real file.
+- ERP import of the 001 export: 201,332 items, "421 rows repeat an item code", "Table 4" read as Sub Activity, 155 active brands.
 
-The Lightware AED sheet must also raise the warning that the price header differs between sections ("MSRP AED DDP" and "MSRP USD Ex-work"). Both Lightware files have two hidden sheets that must be skipped.
+## 15. Later (out of scope now)
 
-## 11. Out of scope for now
-
-SFTP delivery, scheduled ERP master data import, second-person approval, price change warnings against the current ERP cost, PDF or CSV pricelists.
+SFTP link to each entity's ERP: pull categories, Inactive, Webactive and B2B, and push approved files after admin approval. Scheduled ERP data refresh. PDF or CSV pricelists.
