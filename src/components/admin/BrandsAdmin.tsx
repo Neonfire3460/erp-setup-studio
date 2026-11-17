@@ -64,7 +64,7 @@ export function BrandsAdmin() {
               {entities.map(e => <TableCell key={e.code}><Input className="min-w-36" aria-label={`${b.brand_activity || "New brand"} supplier ${e.code}`} value={b.suppliers[e.code] ?? "TO SET"} onChange={x => setRows(r => r.map((b, j) => j === i ? { ...b, suppliers: { ...b.suppliers, [e.code]: x.target.value } } : b))} /></TableCell>)}
               <TableCell className="space-x-2 whitespace-nowrap">
                 <Button size="sm" onClick={() => save(b)}>Save</Button>
-                <Button size="sm" variant="outline" onClick={() => remove(b)}>Delete</Button>
+                <Button size="sm" variant="ghost" onClick={() => remove(b)}>Delete</Button>
               </TableCell>
             </TableRow>
           ))}

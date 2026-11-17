@@ -10,9 +10,9 @@ import { SelfTestAdmin } from "@/components/admin/SelfTestAdmin";
 export const Route = createFileRoute("/_authenticated/admin")({
   head: () => ({
     meta: [
-      { title: "Admin · NMK Pricelist to ERP" },
+      { title: "Admin · NMK Unite" },
       { name: "description", content: "Admin area: users, entities, brands, pricing rules and ERP master data." },
-      { property: "og:title", content: "Admin · NMK Pricelist to ERP" },
+      { property: "og:title", content: "Admin · NMK Unite" },
       { property: "og:description", content: "Admin area: users, entities, brands, pricing rules and ERP master data." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
@@ -26,9 +26,9 @@ export const Route = createFileRoute("/_authenticated/admin")({
 
 function AdminPage() {
   return (
-    <div className="space-y-4">
-      <h1 className="text-xl font-semibold">Admin</h1>
-      <Tabs defaultValue="rules">
+    <div className="nmk-admin min-w-0 space-y-6">
+      <div><h1 className="nmk-page-heading">Admin</h1><p className="mt-1 text-sm text-muted-foreground">Entities, brands, pricing rules and ERP master data.</p></div>
+      <Tabs defaultValue="rules" className="min-w-0">
         <TabsList>
           <TabsTrigger value="rules">Pricing rules</TabsTrigger>
           <TabsTrigger value="entities">Entities</TabsTrigger>

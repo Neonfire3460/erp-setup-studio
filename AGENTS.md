@@ -42,3 +42,5 @@ use the editor.
 - Generate Excel files in the browser and prepare blobs before a download click to preserve browser user activation.
 - Resolve suppliers only through brand_suppliers keyed by brand and entity; brands.supplier is deprecated so shared codes cannot leak into entity exports.
 - Pass entity cost basis, retail method and rounding step into the vendored pricing function; keep these settings and audit snapshots on the server for ordinary users.
+- Implement the design guide's theme in src/styles.css using Tailwind v4 @theme inline, and load remote fonts through the root head; legacy index.css/tailwind.config.ts are not used by this project.
+- Keep reusable workflow visuals in src/components and review-only filtering/pagination separate from build inputs, server calls and exported rows.

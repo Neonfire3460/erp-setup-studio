@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { runPricingSelfTest, type SelfTestLine } from "@/lib/selfTest.functions";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { CheckCircle2, XCircle } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 export function SelfTestAdmin() {
@@ -39,7 +39,7 @@ export function SelfTestAdmin() {
             {lines.map((l, i) => (
               <TableRow key={i}>
                 <TableCell>{l.label}</TableCell>
-                <TableCell>{l.pass ? <Badge>Pass</Badge> : <Badge variant="destructive">Fail</Badge>}</TableCell>
+                <TableCell><span className={l.pass ? "inline-flex items-center gap-2 font-semibold text-success" : "inline-flex items-center gap-2 font-semibold text-destructive"}>{l.pass ? <CheckCircle2 className="size-4" /> : <XCircle className="size-4" />}{l.pass ? "Pass" : "Fail"}</span></TableCell>
               </TableRow>
             ))}
           </TableBody>

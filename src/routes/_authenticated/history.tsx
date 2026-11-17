@@ -6,10 +6,10 @@ export const Route = createFileRoute("/_authenticated/history")({
   loader: ({ context }) => context.queryClient.ensureQueryData(historyOptions),
   head: () => ({
     meta: [
-      { title: "History · NMK Pricelist to ERP" },
-      { name: "description", content: "History page of the NMK pricelist to ERP tool." },
-      { property: "og:title", content: "History · NMK Pricelist to ERP" },
-      { property: "og:description", content: "History page of the NMK pricelist to ERP tool." },
+      { title: "History · NMK Unite" },
+      { name: "description", content: "History page of the NMK Unite workspace." },
+      { property: "og:title", content: "History · NMK Unite" },
+      { property: "og:description", content: "History page of the NMK Unite workspace." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
     ],

@@ -6,14 +6,15 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { BrandLockup } from "@/components/BrandLockup";
 
 export const Route = createFileRoute("/auth")({
   head: () => ({
     meta: [
-      { title: "Sign in · NMK Pricelist to ERP" },
-      { name: "description", content: "Sign in to the NMK pricelist to ERP tool." },
-      { property: "og:title", content: "Sign in · NMK Pricelist to ERP" },
-      { property: "og:description", content: "Sign in to the NMK pricelist to ERP tool." },
+      { title: "Sign in · NMK Unite" },
+      { name: "description", content: "Sign in to the NMK Unite workspace." },
+      { property: "og:title", content: "Sign in · NMK Unite" },
+      { property: "og:description", content: "Sign in to the NMK Unite workspace." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
     ],
@@ -53,10 +54,14 @@ function AuthPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-muted/30 p-4">
-      <Card className="w-full max-w-sm">
+    <div className="grid min-h-screen bg-card lg:grid-cols-2">
+      <div className="fixed inset-x-0 top-0 z-50 h-[3px] bg-nmk-gradient" />
+      <section className="hidden flex-col justify-end bg-nmk-gradient p-14 text-primary-foreground lg:flex"><h1 className="text-4xl font-bold">NMK Unite</h1><p className="mt-3 text-base text-primary-foreground/80">Vendor pricelists to ERP uploads</p></section>
+      <div className="flex flex-col items-center justify-center gap-10 px-6 py-16"><BrandLockup />
+      <Card className="w-full max-w-sm shadow-none">
         <CardHeader>
-          <CardTitle>NMK Pricelist to ERP</CardTitle>
+          <CardTitle>{mode === "signin" ? "Sign In" : "Sign Up"}</CardTitle>
+          <p className="text-sm text-muted-foreground">Use your NMK account.</p>
         </CardHeader>
         <CardContent>
           <Tabs value={mode} onValueChange={(v) => setMode(v as "signin" | "signup")} className="mb-4">
@@ -67,11 +72,11 @@ function AuthPage() {
           </Tabs>
           <form onSubmit={submit} className="space-y-3">
             <div className="space-y-1">
-              <Label htmlFor="email">Email</Label>
-              <Input id="email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
+              <Label htmlFor="email" className="text-[11px] uppercase text-muted-foreground">Email</Label>
+              <Input id="email" placeholder="name@nmkelectronics.com" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
             </div>
             <div className="space-y-1">
-              <Label htmlFor="password">Password</Label>
+              <Label htmlFor="password" className="text-[11px] uppercase text-muted-foreground">Password</Label>
               <Input id="password" type="password" required minLength={6} value={password} onChange={(e) => setPassword(e.target.value)} />
             </div>
             {error && <p className="text-sm text-destructive">{error}</p>}
@@ -82,6 +87,7 @@ function AuthPage() {
           </form>
         </CardContent>
       </Card>
+      </div>
     </div>
   );
 }

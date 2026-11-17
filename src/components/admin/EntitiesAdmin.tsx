@@ -48,13 +48,13 @@ export function EntitiesAdmin() {
           {rows.map((e, i) => (
             <TableRow key={e._new ? `new-${i}` : e.code}>
               <TableCell><Input value={e.code} disabled={!e._new} onChange={(x) => set(i, "code", x.target.value)} className="w-20" /></TableCell>
-              <TableCell><Input value={e.name} onChange={(x) => set(i, "name", x.target.value)} /></TableCell>
-              <TableCell><Input value={e.region} onChange={(x) => set(i, "region", x.target.value)} /></TableCell>
+              <TableCell><Input className="min-w-40" value={e.name} onChange={(x) => set(i, "name", x.target.value)} /></TableCell>
+              <TableCell><Input className="min-w-40" value={e.region} onChange={(x) => set(i, "region", x.target.value)} /></TableCell>
               <TableCell><Input value={e.currency} onChange={(x) => set(i, "currency", x.target.value)} className="w-20" /></TableCell>
               <TableCell><Input type="number" value={e.sort_order} onChange={(x) => set(i, "sort_order", x.target.value)} className="w-20" /></TableCell>
               <TableCell className="space-x-2 whitespace-nowrap">
                 <Button size="sm" onClick={() => save(e)}>Save</Button>
-                <Button size="sm" variant="outline" onClick={() => remove(e)}>Delete</Button>
+                <Button size="sm" variant="ghost" onClick={() => remove(e)}>Delete</Button>
               </TableCell>
             </TableRow>
           ))}

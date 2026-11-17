@@ -6,7 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Sheet, SheetContent, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { LockKeyhole } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
@@ -133,8 +134,8 @@ export function PricingRulesAdmin() {
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-muted-foreground">Per entity: rate / overhead %, cost basis, retail method, rounding step.</p>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-sm text-muted-foreground">Admin-only pricing settings by entity.</p>
         <Button onClick={() => setDraft(emptyDraft())}>Add rule</Button>
       </div>
       <div className="overflow-x-auto">
@@ -142,8 +143,8 @@ export function PricingRulesAdmin() {
           <TableHeader>
             <TableRow>
               <TableHead>Brand Activity</TableHead><TableHead>Sub Activity</TableHead><TableHead>Currency</TableHead>
-              <TableHead>Method</TableHead><TableHead>Discount %</TableHead><TableHead>Divisors</TableHead><TableHead>Max disc.</TableHead>
-              {entities.map((e) => <TableHead key={e.code}>{e.code}</TableHead>)}
+              <TableHead>Method</TableHead><TableHead><LockKeyhole className="mr-1 inline size-3" />Discount %</TableHead><TableHead><LockKeyhole className="mr-1 inline size-3" />Divisors</TableHead><TableHead>Max disc.</TableHead>
+              {entities.map((e) => <TableHead key={e.code}><LockKeyhole className="mr-1 inline size-3" />{e.code}</TableHead>)}
               <TableHead>Active</TableHead><TableHead />
             </TableRow>
           </TableHeader>
@@ -163,8 +164,8 @@ export function PricingRulesAdmin() {
                 })}
                 <TableCell>{r.active ? "Yes" : "No"}</TableCell>
                 <TableCell className="space-x-2 whitespace-nowrap">
-                  <Button size="sm" variant="outline" onClick={() => edit(r)}>Edit</Button>
-                  <Button size="sm" variant="outline" onClick={() => toggleActive(r)}>{r.active ? "Deactivate" : "Activate"}</Button>
+                  <Button size="sm" variant="ghost" onClick={() => edit(r)}>Edit</Button>
+                  <Button size="sm" variant="ghost" onClick={() => toggleActive(r)}>{r.active ? "Deactivate" : "Activate"}</Button>
                 </TableCell>
               </TableRow>
             ))}
@@ -172,11 +173,11 @@ export function PricingRulesAdmin() {
         </Table>
       </div>
 
-      <Dialog open={!!draft} onOpenChange={(o) => !o && setDraft(null)}>
-        <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
-          <DialogHeader><DialogTitle>{draft?.id ? "Edit pricing rule" : "Add pricing rule"}</DialogTitle></DialogHeader>
+      <Sheet open={!!draft} onOpenChange={(o) => !o && setDraft(null)}>
+        <SheetContent className="w-full overflow-y-auto bg-card sm:max-w-2xl">
+          <SheetHeader><p className="flex items-center gap-2 text-xs text-muted-foreground"><LockKeyhole className="size-3" />Admin only</p><SheetTitle>{draft?.id ? "Edit pricing rule" : "Add pricing rule"}</SheetTitle></SheetHeader>
           {draft && (
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-4 pt-6 sm:grid-cols-2">
               <Field label="Brand Activity"><Input value={draft.brand_activity} onChange={(e) => setD({ brand_activity: e.target.value })} /></Field>
               <Field label="Sub Activity"><Input value={draft.sub_activity} onChange={(e) => setD({ sub_activity: e.target.value })} /></Field>
               <Field label="Vendor currency"><Input value={draft.vendor_currency} onChange={(e) => setD({ vendor_currency: e.target.value })} /></Field>
@@ -196,7 +197,7 @@ export function PricingRulesAdmin() {
                 <label className="flex items-center gap-2 text-sm"><Switch checked={draft.is_test} onCheckedChange={(v) => setD({ is_test: v })} /> Test</label>
                 <label className="flex items-center gap-2 text-sm"><Switch checked={draft.active} onCheckedChange={(v) => setD({ active: v })} /> Active</label>
               </div>
-              <div className="col-span-2 space-y-2">
+              <div className="space-y-3 sm:col-span-2">
                 <Label>Entities (leave both empty = not available)</Label>
                 {entities.map((e) => (
                   <div key={e.code} className="grid grid-cols-2 items-center gap-2 border-b pb-3 sm:grid-cols-3">
@@ -211,16 +212,16 @@ export function PricingRulesAdmin() {
               </div>
             </div>
           )}
-          <DialogFooter>
+          <SheetFooter>
             <Button variant="outline" onClick={() => setDraft(null)}>Cancel</Button>
             <Button onClick={save} disabled={saving}>Save</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return <div className="space-y-1"><Label>{label}</Label>{children}</div>;
+  return <div className="space-y-1"><Label className="text-[11px] uppercase text-muted-foreground">{label.includes("Discount") || label.includes("divisors") ? <LockKeyhole className="inline size-3" /> : null}{label}</Label>{children}</div>;
 }

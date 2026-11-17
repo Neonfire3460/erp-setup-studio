@@ -1,5 +1,6 @@
-# ERP specification update
-- [x] Per-entity suppliers and pricing settings, with updated seed data.
-- [x] Local MSRP input, price-on-request handling and ERP cell types.
-- [x] Admin editing and updated pricing self-test.
-- [x] Automated tests and signed-in export verification.
+# NMK Unite visual update
+- [x] Theme, typography, shell and sign-in styling.
+- [x] Shared presentation components and Build styling.
+- [x] History and Admin styling; preserve all existing operations.
+- [x] Verify desktop/mobile and existing tests.
+- [x] Original logo lockups and favicon — original PNG files saved unchanged in public/brand/.

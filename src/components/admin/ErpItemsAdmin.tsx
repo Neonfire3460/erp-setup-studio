@@ -3,7 +3,7 @@ import { toast } from "sonner";
 import ExcelJS from "exceljs";
 import { supabase } from "@/integrations/supabase/client";
 import { cellValue } from "@/lib/sheetParser";
-import { Input } from "@/components/ui/input";
+import { UploadArea } from "@/components/UploadArea";
 
 const HEADERS: [string, string][] = [
   ["Item Code", "item_code"], ["Family Name", "family_name"], ["Group Name", "group_name"],
@@ -94,7 +94,7 @@ export function ErpItemsAdmin() {
       <p className="text-sm text-muted-foreground">
         Upload an Excel export with the headers: {HEADERS.map((h) => h[0]).join(", ")}. It replaces all rows.
       </p>
-      <Input type="file" accept=".xlsx" disabled={busy} onChange={(e) => { const f = e.target.files?.[0]; if (f) onFile(f); e.target.value = ""; }} />
+      <UploadArea disabled={busy} onFile={f => void onFile(f)} />
       {status && <p className="text-sm">{status}</p>}
     </div>
   );

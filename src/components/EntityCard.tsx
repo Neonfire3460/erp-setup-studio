@@ -1,0 +1,5 @@
+import { Checkbox } from "@/components/ui/checkbox";
+import { cn } from "@/lib/utils";
+export function EntityCard({ code, name, currency, checked, disabled, reason, onChange }: { code: string; name: string; currency: string; checked: boolean; disabled?: boolean; reason?: string | undefined; onChange: (checked: boolean) => void }) {
+  return <label title={reason} className={cn("relative flex min-h-28 cursor-pointer flex-col rounded-lg border-2 p-4", checked ? "border-primary bg-accent" : "border-border bg-card", disabled && "cursor-not-allowed", reason && "opacity-50")}><Checkbox aria-label={`${name} · ${currency}`} className="absolute right-4 top-4" disabled={disabled} checked={checked} onCheckedChange={v => onChange(v === true)} /><span className="mb-3 w-fit rounded bg-accent px-2 py-0.5 text-xs font-semibold text-primary">{code}</span><span className="pr-5 font-semibold">{name}</span><span className="text-xs text-muted-foreground">{currency}{reason ? ` · ${reason}` : ""}</span></label>;
+}

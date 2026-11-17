@@ -6,10 +6,10 @@ export const Route = createFileRoute("/_authenticated/build")({
   loader: ({ context }) => context.queryClient.ensureQueryData(buildOptions),
   head: () => ({
     meta: [
-      { title: "Build · NMK Pricelist to ERP" },
-      { name: "description", content: "Build page of the NMK pricelist to ERP tool." },
-      { property: "og:title", content: "Build · NMK Pricelist to ERP" },
-      { property: "og:description", content: "Build page of the NMK pricelist to ERP tool." },
+      { title: "NMK Unite" },
+      { name: "description", content: "Build page of the NMK Unite workspace." },
+      { property: "og:title", content: "NMK Unite" },
+      { property: "og:description", content: "Build page of the NMK Unite workspace." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
     ],
