@@ -1,7 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { ComingNext } from "@/components/ComingNext";
+import { MySubmissions } from "@/components/MySubmissions";
+import { submissionsQuery } from "@/lib/workflow.queries";
 
 export const Route = createFileRoute("/_authenticated/my-submissions")({
+  loader: ({ context }) => context.queryClient.ensureQueryData(submissionsQuery),
   head: () => ({
     meta: [
       { title: "My submissions · NMK Unite" },
@@ -12,5 +14,5 @@ export const Route = createFileRoute("/_authenticated/my-submissions")({
       { name: "twitter:card", content: "summary" },
     ],
   }),
-  component: () => <ComingNext title="My submissions" text="Your submissions and their review status." />,
+  component: MySubmissions,
 });

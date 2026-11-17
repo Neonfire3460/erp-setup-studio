@@ -656,6 +656,7 @@ export type Database = {
           file_path: string | null
           id: string
           output_path: string | null
+          processing_revision: number
           review_comment: string | null
           reviewed_at: string | null
           reviewed_by: string | null
@@ -673,6 +674,7 @@ export type Database = {
           file_path?: string | null
           id?: string
           output_path?: string | null
+          processing_revision?: number
           review_comment?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
@@ -690,6 +692,7 @@ export type Database = {
           file_path?: string | null
           id?: string
           output_path?: string | null
+          processing_revision?: number
           review_comment?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
@@ -863,6 +866,43 @@ export type Database = {
     }
     Functions: {
       activate_erp_import: { Args: { _import_id: string }; Returns: number }
+      active_erp_for_codes: {
+        Args: { _codes: string[] }
+        Returns: {
+          alternative_code: string | null
+          alternative_description: string | null
+          b2b: number | null
+          brand_activity: string | null
+          category_code: string | null
+          category_name: string | null
+          description: string | null
+          entity_code: string
+          family_code: string | null
+          family_name: string | null
+          group_code: string | null
+          group_name: string | null
+          import_id: string
+          inactive: number | null
+          item_code: string
+          max_discount_pct: number | null
+          measurement_unit: string | null
+          midwich_family_code: string | null
+          midwich_family_name: string | null
+          refreshed_at: string
+          retail_price: number | null
+          sub_activity: string | null
+          sub_category_code: string | null
+          sub_category_name: string | null
+          supplier_code: string | null
+          webactive: number | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "erp_items"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       admin_list_users: {
         Args: never
         Returns: {
@@ -878,6 +918,20 @@ export type Database = {
           _user_id: string
         }
         Returns: undefined
+      }
+      approve_submission: {
+        Args: { _actor: string; _id: string; _path: string; _revision: number }
+        Returns: undefined
+      }
+      create_build_submission: {
+        Args: {
+          _brand: string
+          _entities: Json
+          _path: string
+          _rows: Json
+          _user: string
+        }
+        Returns: string
       }
       delete_erp_import_rows: { Args: { _import_id: string }; Returns: number }
       erp_check: {
@@ -910,6 +964,17 @@ export type Database = {
           default_unit: string
           sub_activities: string[]
         }[]
+      }
+      persist_submission_processing: {
+        Args: {
+          _counts: Json
+          _id: string
+          _outputs: Json
+          _revision: number
+          _status: string
+          _tickets: Json
+        }
+        Returns: number
       }
     }
     Enums: {

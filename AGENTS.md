@@ -40,3 +40,5 @@ use the editor.
 - Generate Excel files in the browser and prepare blobs before a download click to preserve browser user activation.
 - Implement the design guide's theme in src/styles.css using Tailwind v4 @theme inline, and load remote fonts through the root head; legacy index.css/tailwind.config.ts are not used by this project.
 - Keep reusable workflow visuals in src/components.
+- Submission workflows use authenticated server functions with explicit owner/admin checks, server-only processing helpers and service-only atomic persistence/approval RPCs; this keeps confidential output inaccessible to users and locks approved records.
+- Normal-user submission-row reads exclude cost and MSRP columns; Build displays only local uploaded costs, and reuse reads only safe submission choices.

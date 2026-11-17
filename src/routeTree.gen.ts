@@ -17,6 +17,10 @@ import { Route as AuthenticatedBuildRouteImport } from './routes/_authenticated/
 import { Route as AuthenticatedCatalogueRouteImport } from './routes/_authenticated/catalogue'
 import { Route as AuthenticatedConvertRouteImport } from './routes/_authenticated/convert'
 import { Route as AuthenticatedMySubmissionsRouteImport } from './routes/_authenticated/my-submissions'
+import { Route as AuthenticatedReviewQueueRouteImport } from './routes/_authenticated/review-queue'
+import { Route as AuthenticatedTicketsRouteImport } from './routes/_authenticated/tickets'
+import { Route as AuthenticatedReviewQueueIndexRouteImport } from './routes/_authenticated/review-queue.index'
+import { Route as AuthenticatedReviewQueueIdRouteImport } from './routes/_authenticated/review-queue.$id'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -58,6 +62,29 @@ const AuthenticatedMySubmissionsRoute =
     path: '/my-submissions',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedReviewQueueRoute =
+  AuthenticatedReviewQueueRouteImport.update({
+    id: '/review-queue',
+    path: '/review-queue',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedTicketsRoute = AuthenticatedTicketsRouteImport.update({
+  id: '/tickets',
+  path: '/tickets',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedReviewQueueIndexRoute =
+  AuthenticatedReviewQueueIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AuthenticatedReviewQueueRoute,
+  } as any)
+const AuthenticatedReviewQueueIdRoute =
+  AuthenticatedReviewQueueIdRouteImport.update({
+    id: '/$id',
+    path: '/$id',
+    getParentRoute: () => AuthenticatedReviewQueueRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -67,6 +94,10 @@ export interface FileRoutesByFullPath {
   '/catalogue': typeof AuthenticatedCatalogueRoute
   '/convert': typeof AuthenticatedConvertRoute
   '/my-submissions': typeof AuthenticatedMySubmissionsRoute
+  '/review-queue': typeof AuthenticatedReviewQueueRouteWithChildren
+  '/tickets': typeof AuthenticatedTicketsRoute
+  '/review-queue/$id': typeof AuthenticatedReviewQueueIdRoute
+  '/review-queue/': typeof AuthenticatedReviewQueueIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -76,6 +107,9 @@ export interface FileRoutesByTo {
   '/catalogue': typeof AuthenticatedCatalogueRoute
   '/convert': typeof AuthenticatedConvertRoute
   '/my-submissions': typeof AuthenticatedMySubmissionsRoute
+  '/tickets': typeof AuthenticatedTicketsRoute
+  '/review-queue/$id': typeof AuthenticatedReviewQueueIdRoute
+  '/review-queue': typeof AuthenticatedReviewQueueIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -87,6 +121,10 @@ export interface FileRoutesById {
   '/_authenticated/catalogue': typeof AuthenticatedCatalogueRoute
   '/_authenticated/convert': typeof AuthenticatedConvertRoute
   '/_authenticated/my-submissions': typeof AuthenticatedMySubmissionsRoute
+  '/_authenticated/review-queue': typeof AuthenticatedReviewQueueRouteWithChildren
+  '/_authenticated/tickets': typeof AuthenticatedTicketsRoute
+  '/_authenticated/review-queue/$id': typeof AuthenticatedReviewQueueIdRoute
+  '/_authenticated/review-queue/': typeof AuthenticatedReviewQueueIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -98,6 +136,10 @@ export interface FileRouteTypes {
     | '/catalogue'
     | '/convert'
     | '/my-submissions'
+    | '/review-queue'
+    | '/tickets'
+    | '/review-queue/$id'
+    | '/review-queue/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -107,6 +149,9 @@ export interface FileRouteTypes {
     | '/catalogue'
     | '/convert'
     | '/my-submissions'
+    | '/tickets'
+    | '/review-queue/$id'
+    | '/review-queue'
   id:
     | '__root__'
     | '/'
@@ -117,6 +162,10 @@ export interface FileRouteTypes {
     | '/_authenticated/catalogue'
     | '/_authenticated/convert'
     | '/_authenticated/my-submissions'
+    | '/_authenticated/review-queue'
+    | '/_authenticated/tickets'
+    | '/_authenticated/review-queue/$id'
+    | '/_authenticated/review-queue/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -183,8 +232,52 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedMySubmissionsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/review-queue': {
+      id: '/_authenticated/review-queue'
+      path: '/review-queue'
+      fullPath: '/review-queue'
+      preLoaderRoute: typeof AuthenticatedReviewQueueRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/tickets': {
+      id: '/_authenticated/tickets'
+      path: '/tickets'
+      fullPath: '/tickets'
+      preLoaderRoute: typeof AuthenticatedTicketsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/review-queue/': {
+      id: '/_authenticated/review-queue/'
+      path: '/'
+      fullPath: '/review-queue/'
+      preLoaderRoute: typeof AuthenticatedReviewQueueIndexRouteImport
+      parentRoute: typeof AuthenticatedReviewQueueRoute
+    }
+    '/_authenticated/review-queue/$id': {
+      id: '/_authenticated/review-queue/$id'
+      path: '/$id'
+      fullPath: '/review-queue/$id'
+      preLoaderRoute: typeof AuthenticatedReviewQueueIdRouteImport
+      parentRoute: typeof AuthenticatedReviewQueueRoute
+    }
   }
 }
+
+interface AuthenticatedReviewQueueRouteChildren {
+  AuthenticatedReviewQueueIdRoute: typeof AuthenticatedReviewQueueIdRoute
+  AuthenticatedReviewQueueIndexRoute: typeof AuthenticatedReviewQueueIndexRoute
+}
+
+const AuthenticatedReviewQueueRouteChildren: AuthenticatedReviewQueueRouteChildren =
+  {
+    AuthenticatedReviewQueueIdRoute: AuthenticatedReviewQueueIdRoute,
+    AuthenticatedReviewQueueIndexRoute: AuthenticatedReviewQueueIndexRoute,
+  }
+
+const AuthenticatedReviewQueueRouteWithChildren =
+  AuthenticatedReviewQueueRoute._addFileChildren(
+    AuthenticatedReviewQueueRouteChildren,
+  )
 
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedAdminRoute: typeof AuthenticatedAdminRoute
@@ -192,6 +285,8 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedCatalogueRoute: typeof AuthenticatedCatalogueRoute
   AuthenticatedConvertRoute: typeof AuthenticatedConvertRoute
   AuthenticatedMySubmissionsRoute: typeof AuthenticatedMySubmissionsRoute
+  AuthenticatedReviewQueueRoute: typeof AuthenticatedReviewQueueRouteWithChildren
+  AuthenticatedTicketsRoute: typeof AuthenticatedTicketsRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
@@ -200,6 +295,8 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedCatalogueRoute: AuthenticatedCatalogueRoute,
   AuthenticatedConvertRoute: AuthenticatedConvertRoute,
   AuthenticatedMySubmissionsRoute: AuthenticatedMySubmissionsRoute,
+  AuthenticatedReviewQueueRoute: AuthenticatedReviewQueueRouteWithChildren,
+  AuthenticatedTicketsRoute: AuthenticatedTicketsRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =
