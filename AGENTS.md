@@ -30,17 +30,13 @@ use the editor.
 <!-- LOVABLE:END -->
 
 ## Project rules
-- docs/SPEC.md is the source of truth; build only the sections each prompt asks for.
-- src/lib/sheetParser.ts and src/server/pricing.server.ts are vendored verbatim from the spec; never change their logic (sheetParser only has a `// @ts-nocheck` header because the project's strict TS flags reject it).
-- Pricing maths lives only in src/server/pricing.server.ts; load it with `await import()` inside server-function handlers so it never enters the browser bundle (src/server/** is import-protected from client code).
-- Server functions live in src/lib/*.functions.ts (src/server/** cannot be imported by client code).
-- pricing_rules, pricing_rule_entities and export_audit are admin-only via RLS; normal users get rule info only through list_activities() (no numbers).
+- docs/SPEC.md (version 2) is the source of truth; build only the sections each prompt asks for.
+- Vendored files are used unchanged apart from a `// @ts-nocheck` first line where strict TS rejects them: src/lib/sheetParser.ts, src/lib/excelFiles.ts, src/server/shared/pricing.ts, src/server/shared/processing.ts. The spec's supabase/functions/_shared/ path is replaced by src/server/shared/ because this project uses server functions, not edge functions.
+- src/server/** is import-protected from client code; load it with `await import()` inside createServerFn handlers in src/lib/*.functions.ts.
+- Exchange rates, pricing rules, app_settings, ERP data, output rows and tickets are admin-only via RLS; signed-in users get brand and ERP info only via list_brands() and erp_check() (no prices).
 - The first auth user becomes admin via the on_auth_user_created_role trigger; roles change via admin_set_role(), which refuses to remove the last admin.
-- reference/ERP-Upload-Template.xlsx is the reference for ERP output headers.
-- Build preview, export and pricing self-test share buildRows.server.ts; only whitelisted ERP columns and checks cross the server boundary, while audited exports are repriced and saved atomically.
-- ERP replacement stages each upload under its own admin-owned batch and swaps through a transaction-scoped database function; partial staging never changes the master.
+- ERP data import parses in a Web Worker (SheetJS/PapaParse + readErpData), stages per batch, then finishErpImport verifies admin and calls service-only swap_erp_items() so one entity is replaced in one transaction (service role avoids the user statement timeout).
+- Pricing self-test cases live server-side in src/server/selfTestCases.server.ts and run through processSubmission with an in-memory context; only label and pass/fail return to the browser.
 - Generate Excel files in the browser and prepare blobs before a download click to preserve browser user activation.
-- Resolve suppliers only through brand_suppliers keyed by brand and entity; brands.supplier is deprecated so shared codes cannot leak into entity exports.
-- Pass entity cost basis, retail method and rounding step into the vendored pricing function; keep these settings and audit snapshots on the server for ordinary users.
 - Implement the design guide's theme in src/styles.css using Tailwind v4 @theme inline, and load remote fonts through the root head; legacy index.css/tailwind.config.ts are not used by this project.
-- Keep reusable workflow visuals in src/components and review-only filtering/pagination separate from build inputs, server calls and exported rows.
+- Keep reusable workflow visuals in src/components.
