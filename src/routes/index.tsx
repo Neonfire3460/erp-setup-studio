@@ -1,17 +1,9 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
+import { headFor } from "@/lib/v3/page";
 
 export const Route = createFileRoute("/")({
-  head: () => ({
-    meta: [
-      { title: "Workspace · NMK Unite" },
-      { name: "description", content: "Internal tool that turns vendor pricelists into ERP upload files." },
-      { property: "og:title", content: "Workspace · NMK Unite" },
-      { property: "og:description", content: "Internal tool that turns vendor pricelists into ERP upload files." },
-      { property: "og:type", content: "website" },
-      { name: "twitter:card", content: "summary" },
-    ],
-  }),
+  head: () => headFor("Home", "NMK Unite: item registration, PDF pricelists and ERP uploads."),
   beforeLoad: () => {
-    throw redirect({ to: "/catalogue" });
+    throw redirect({ to: "/home" });
   },
 });

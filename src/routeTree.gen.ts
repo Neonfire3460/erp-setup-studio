@@ -13,14 +13,18 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
-import { Route as AuthenticatedBuildRouteImport } from './routes/_authenticated/build'
-import { Route as AuthenticatedCatalogueRouteImport } from './routes/_authenticated/catalogue'
-import { Route as AuthenticatedConvertRouteImport } from './routes/_authenticated/convert'
-import { Route as AuthenticatedMySubmissionsRouteImport } from './routes/_authenticated/my-submissions'
-import { Route as AuthenticatedReviewQueueRouteImport } from './routes/_authenticated/review-queue'
-import { Route as AuthenticatedTicketsRouteImport } from './routes/_authenticated/tickets'
-import { Route as AuthenticatedReviewQueueIndexRouteImport } from './routes/_authenticated/review-queue.index'
-import { Route as AuthenticatedReviewQueueIdRouteImport } from './routes/_authenticated/review-queue.$id'
+import { Route as AuthenticatedErpImportRouteImport } from './routes/_authenticated/erp-import'
+import { Route as AuthenticatedHomeRouteImport } from './routes/_authenticated/home'
+import { Route as AuthenticatedPdfPricelistRouteImport } from './routes/_authenticated/pdf-pricelist'
+import { Route as AuthenticatedUploadRouteImport } from './routes/_authenticated/upload'
+import { Route as AuthenticatedApprovalIndexRouteImport } from './routes/_authenticated/approval.index'
+import { Route as AuthenticatedApprovalIdRouteImport } from './routes/_authenticated/approval.$id'
+import { Route as AuthenticatedItemRegistrationIndexRouteImport } from './routes/_authenticated/item-registration.index'
+import { Route as AuthenticatedItemRegistrationStandardRouteImport } from './routes/_authenticated/item-registration.standard'
+import { Route as AuthenticatedMySubmissionsIndexRouteImport } from './routes/_authenticated/my-submissions.index'
+import { Route as AuthenticatedMySubmissionsIdRouteImport } from './routes/_authenticated/my-submissions.$id'
+import { Route as AuthenticatedReviewIndexRouteImport } from './routes/_authenticated/review.index'
+import { Route as AuthenticatedReviewIdRouteImport } from './routes/_authenticated/review.$id'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -41,75 +45,107 @@ const AuthenticatedAdminRoute = AuthenticatedAdminRouteImport.update({
   path: '/admin',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
-const AuthenticatedBuildRoute = AuthenticatedBuildRouteImport.update({
-  id: '/build',
-  path: '/build',
+const AuthenticatedErpImportRoute = AuthenticatedErpImportRouteImport.update({
+  id: '/erp-import',
+  path: '/erp-import',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
-const AuthenticatedCatalogueRoute = AuthenticatedCatalogueRouteImport.update({
-  id: '/catalogue',
-  path: '/catalogue',
+const AuthenticatedHomeRoute = AuthenticatedHomeRouteImport.update({
+  id: '/home',
+  path: '/home',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
-const AuthenticatedConvertRoute = AuthenticatedConvertRouteImport.update({
-  id: '/convert',
-  path: '/convert',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
-const AuthenticatedMySubmissionsRoute =
-  AuthenticatedMySubmissionsRouteImport.update({
-    id: '/my-submissions',
-    path: '/my-submissions',
+const AuthenticatedPdfPricelistRoute =
+  AuthenticatedPdfPricelistRouteImport.update({
+    id: '/pdf-pricelist',
+    path: '/pdf-pricelist',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
-const AuthenticatedReviewQueueRoute =
-  AuthenticatedReviewQueueRouteImport.update({
-    id: '/review-queue',
-    path: '/review-queue',
-    getParentRoute: () => AuthenticatedRouteRoute,
-  } as any)
-const AuthenticatedTicketsRoute = AuthenticatedTicketsRouteImport.update({
-  id: '/tickets',
-  path: '/tickets',
+const AuthenticatedUploadRoute = AuthenticatedUploadRouteImport.update({
+  id: '/upload',
+  path: '/upload',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
-const AuthenticatedReviewQueueIndexRoute =
-  AuthenticatedReviewQueueIndexRouteImport.update({
-    id: '/',
-    path: '/',
-    getParentRoute: () => AuthenticatedReviewQueueRoute,
+const AuthenticatedApprovalIndexRoute =
+  AuthenticatedApprovalIndexRouteImport.update({
+    id: '/approval/',
+    path: '/approval/',
+    getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
-const AuthenticatedReviewQueueIdRoute =
-  AuthenticatedReviewQueueIdRouteImport.update({
-    id: '/$id',
-    path: '/$id',
-    getParentRoute: () => AuthenticatedReviewQueueRoute,
+const AuthenticatedApprovalIdRoute = AuthenticatedApprovalIdRouteImport.update({
+  id: '/approval/$id',
+  path: '/approval/$id',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedItemRegistrationIndexRoute =
+  AuthenticatedItemRegistrationIndexRouteImport.update({
+    id: '/item-registration/',
+    path: '/item-registration/',
+    getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedItemRegistrationStandardRoute =
+  AuthenticatedItemRegistrationStandardRouteImport.update({
+    id: '/item-registration/standard',
+    path: '/item-registration/standard',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedMySubmissionsIndexRoute =
+  AuthenticatedMySubmissionsIndexRouteImport.update({
+    id: '/my-submissions/',
+    path: '/my-submissions/',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedMySubmissionsIdRoute =
+  AuthenticatedMySubmissionsIdRouteImport.update({
+    id: '/my-submissions/$id',
+    path: '/my-submissions/$id',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedReviewIndexRoute =
+  AuthenticatedReviewIndexRouteImport.update({
+    id: '/review/',
+    path: '/review/',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedReviewIdRoute = AuthenticatedReviewIdRouteImport.update({
+  id: '/review/$id',
+  path: '/review/$id',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/admin': typeof AuthenticatedAdminRoute
-  '/build': typeof AuthenticatedBuildRoute
-  '/catalogue': typeof AuthenticatedCatalogueRoute
-  '/convert': typeof AuthenticatedConvertRoute
-  '/my-submissions': typeof AuthenticatedMySubmissionsRoute
-  '/review-queue': typeof AuthenticatedReviewQueueRouteWithChildren
-  '/tickets': typeof AuthenticatedTicketsRoute
-  '/review-queue/$id': typeof AuthenticatedReviewQueueIdRoute
-  '/review-queue/': typeof AuthenticatedReviewQueueIndexRoute
+  '/erp-import': typeof AuthenticatedErpImportRoute
+  '/home': typeof AuthenticatedHomeRoute
+  '/pdf-pricelist': typeof AuthenticatedPdfPricelistRoute
+  '/upload': typeof AuthenticatedUploadRoute
+  '/approval/$id': typeof AuthenticatedApprovalIdRoute
+  '/item-registration/standard': typeof AuthenticatedItemRegistrationStandardRoute
+  '/my-submissions/$id': typeof AuthenticatedMySubmissionsIdRoute
+  '/review/$id': typeof AuthenticatedReviewIdRoute
+  '/approval/': typeof AuthenticatedApprovalIndexRoute
+  '/item-registration/': typeof AuthenticatedItemRegistrationIndexRoute
+  '/my-submissions/': typeof AuthenticatedMySubmissionsIndexRoute
+  '/review/': typeof AuthenticatedReviewIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/admin': typeof AuthenticatedAdminRoute
-  '/build': typeof AuthenticatedBuildRoute
-  '/catalogue': typeof AuthenticatedCatalogueRoute
-  '/convert': typeof AuthenticatedConvertRoute
-  '/my-submissions': typeof AuthenticatedMySubmissionsRoute
-  '/tickets': typeof AuthenticatedTicketsRoute
-  '/review-queue/$id': typeof AuthenticatedReviewQueueIdRoute
-  '/review-queue': typeof AuthenticatedReviewQueueIndexRoute
+  '/erp-import': typeof AuthenticatedErpImportRoute
+  '/home': typeof AuthenticatedHomeRoute
+  '/pdf-pricelist': typeof AuthenticatedPdfPricelistRoute
+  '/upload': typeof AuthenticatedUploadRoute
+  '/approval/$id': typeof AuthenticatedApprovalIdRoute
+  '/item-registration/standard': typeof AuthenticatedItemRegistrationStandardRoute
+  '/my-submissions/$id': typeof AuthenticatedMySubmissionsIdRoute
+  '/review/$id': typeof AuthenticatedReviewIdRoute
+  '/approval': typeof AuthenticatedApprovalIndexRoute
+  '/item-registration': typeof AuthenticatedItemRegistrationIndexRoute
+  '/my-submissions': typeof AuthenticatedMySubmissionsIndexRoute
+  '/review': typeof AuthenticatedReviewIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -117,14 +153,18 @@ export interface FileRoutesById {
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
   '/_authenticated/admin': typeof AuthenticatedAdminRoute
-  '/_authenticated/build': typeof AuthenticatedBuildRoute
-  '/_authenticated/catalogue': typeof AuthenticatedCatalogueRoute
-  '/_authenticated/convert': typeof AuthenticatedConvertRoute
-  '/_authenticated/my-submissions': typeof AuthenticatedMySubmissionsRoute
-  '/_authenticated/review-queue': typeof AuthenticatedReviewQueueRouteWithChildren
-  '/_authenticated/tickets': typeof AuthenticatedTicketsRoute
-  '/_authenticated/review-queue/$id': typeof AuthenticatedReviewQueueIdRoute
-  '/_authenticated/review-queue/': typeof AuthenticatedReviewQueueIndexRoute
+  '/_authenticated/erp-import': typeof AuthenticatedErpImportRoute
+  '/_authenticated/home': typeof AuthenticatedHomeRoute
+  '/_authenticated/pdf-pricelist': typeof AuthenticatedPdfPricelistRoute
+  '/_authenticated/upload': typeof AuthenticatedUploadRoute
+  '/_authenticated/approval/$id': typeof AuthenticatedApprovalIdRoute
+  '/_authenticated/item-registration/standard': typeof AuthenticatedItemRegistrationStandardRoute
+  '/_authenticated/my-submissions/$id': typeof AuthenticatedMySubmissionsIdRoute
+  '/_authenticated/review/$id': typeof AuthenticatedReviewIdRoute
+  '/_authenticated/approval/': typeof AuthenticatedApprovalIndexRoute
+  '/_authenticated/item-registration/': typeof AuthenticatedItemRegistrationIndexRoute
+  '/_authenticated/my-submissions/': typeof AuthenticatedMySubmissionsIndexRoute
+  '/_authenticated/review/': typeof AuthenticatedReviewIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -132,40 +172,53 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/admin'
-    | '/build'
-    | '/catalogue'
-    | '/convert'
-    | '/my-submissions'
-    | '/review-queue'
-    | '/tickets'
-    | '/review-queue/$id'
-    | '/review-queue/'
+    | '/erp-import'
+    | '/home'
+    | '/pdf-pricelist'
+    | '/upload'
+    | '/approval/$id'
+    | '/item-registration/standard'
+    | '/my-submissions/$id'
+    | '/review/$id'
+    | '/approval/'
+    | '/item-registration/'
+    | '/my-submissions/'
+    | '/review/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/auth'
     | '/admin'
-    | '/build'
-    | '/catalogue'
-    | '/convert'
+    | '/erp-import'
+    | '/home'
+    | '/pdf-pricelist'
+    | '/upload'
+    | '/approval/$id'
+    | '/item-registration/standard'
+    | '/my-submissions/$id'
+    | '/review/$id'
+    | '/approval'
+    | '/item-registration'
     | '/my-submissions'
-    | '/tickets'
-    | '/review-queue/$id'
-    | '/review-queue'
+    | '/review'
   id:
     | '__root__'
     | '/'
     | '/_authenticated'
     | '/auth'
     | '/_authenticated/admin'
-    | '/_authenticated/build'
-    | '/_authenticated/catalogue'
-    | '/_authenticated/convert'
-    | '/_authenticated/my-submissions'
-    | '/_authenticated/review-queue'
-    | '/_authenticated/tickets'
-    | '/_authenticated/review-queue/$id'
-    | '/_authenticated/review-queue/'
+    | '/_authenticated/erp-import'
+    | '/_authenticated/home'
+    | '/_authenticated/pdf-pricelist'
+    | '/_authenticated/upload'
+    | '/_authenticated/approval/$id'
+    | '/_authenticated/item-registration/standard'
+    | '/_authenticated/my-submissions/$id'
+    | '/_authenticated/review/$id'
+    | '/_authenticated/approval/'
+    | '/_authenticated/item-registration/'
+    | '/_authenticated/my-submissions/'
+    | '/_authenticated/review/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -204,99 +257,125 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
-    '/_authenticated/build': {
-      id: '/_authenticated/build'
-      path: '/build'
-      fullPath: '/build'
-      preLoaderRoute: typeof AuthenticatedBuildRouteImport
+    '/_authenticated/erp-import': {
+      id: '/_authenticated/erp-import'
+      path: '/erp-import'
+      fullPath: '/erp-import'
+      preLoaderRoute: typeof AuthenticatedErpImportRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
-    '/_authenticated/catalogue': {
-      id: '/_authenticated/catalogue'
-      path: '/catalogue'
-      fullPath: '/catalogue'
-      preLoaderRoute: typeof AuthenticatedCatalogueRouteImport
+    '/_authenticated/home': {
+      id: '/_authenticated/home'
+      path: '/home'
+      fullPath: '/home'
+      preLoaderRoute: typeof AuthenticatedHomeRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
-    '/_authenticated/convert': {
-      id: '/_authenticated/convert'
-      path: '/convert'
-      fullPath: '/convert'
-      preLoaderRoute: typeof AuthenticatedConvertRouteImport
+    '/_authenticated/pdf-pricelist': {
+      id: '/_authenticated/pdf-pricelist'
+      path: '/pdf-pricelist'
+      fullPath: '/pdf-pricelist'
+      preLoaderRoute: typeof AuthenticatedPdfPricelistRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
-    '/_authenticated/my-submissions': {
-      id: '/_authenticated/my-submissions'
+    '/_authenticated/upload': {
+      id: '/_authenticated/upload'
+      path: '/upload'
+      fullPath: '/upload'
+      preLoaderRoute: typeof AuthenticatedUploadRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/approval/': {
+      id: '/_authenticated/approval/'
+      path: '/approval'
+      fullPath: '/approval/'
+      preLoaderRoute: typeof AuthenticatedApprovalIndexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/approval/$id': {
+      id: '/_authenticated/approval/$id'
+      path: '/approval/$id'
+      fullPath: '/approval/$id'
+      preLoaderRoute: typeof AuthenticatedApprovalIdRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/item-registration/': {
+      id: '/_authenticated/item-registration/'
+      path: '/item-registration'
+      fullPath: '/item-registration/'
+      preLoaderRoute: typeof AuthenticatedItemRegistrationIndexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/item-registration/standard': {
+      id: '/_authenticated/item-registration/standard'
+      path: '/item-registration/standard'
+      fullPath: '/item-registration/standard'
+      preLoaderRoute: typeof AuthenticatedItemRegistrationStandardRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/my-submissions/': {
+      id: '/_authenticated/my-submissions/'
       path: '/my-submissions'
-      fullPath: '/my-submissions'
-      preLoaderRoute: typeof AuthenticatedMySubmissionsRouteImport
+      fullPath: '/my-submissions/'
+      preLoaderRoute: typeof AuthenticatedMySubmissionsIndexRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
-    '/_authenticated/review-queue': {
-      id: '/_authenticated/review-queue'
-      path: '/review-queue'
-      fullPath: '/review-queue'
-      preLoaderRoute: typeof AuthenticatedReviewQueueRouteImport
+    '/_authenticated/my-submissions/$id': {
+      id: '/_authenticated/my-submissions/$id'
+      path: '/my-submissions/$id'
+      fullPath: '/my-submissions/$id'
+      preLoaderRoute: typeof AuthenticatedMySubmissionsIdRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
-    '/_authenticated/tickets': {
-      id: '/_authenticated/tickets'
-      path: '/tickets'
-      fullPath: '/tickets'
-      preLoaderRoute: typeof AuthenticatedTicketsRouteImport
+    '/_authenticated/review/': {
+      id: '/_authenticated/review/'
+      path: '/review'
+      fullPath: '/review/'
+      preLoaderRoute: typeof AuthenticatedReviewIndexRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
-    '/_authenticated/review-queue/': {
-      id: '/_authenticated/review-queue/'
-      path: '/'
-      fullPath: '/review-queue/'
-      preLoaderRoute: typeof AuthenticatedReviewQueueIndexRouteImport
-      parentRoute: typeof AuthenticatedReviewQueueRoute
-    }
-    '/_authenticated/review-queue/$id': {
-      id: '/_authenticated/review-queue/$id'
-      path: '/$id'
-      fullPath: '/review-queue/$id'
-      preLoaderRoute: typeof AuthenticatedReviewQueueIdRouteImport
-      parentRoute: typeof AuthenticatedReviewQueueRoute
+    '/_authenticated/review/$id': {
+      id: '/_authenticated/review/$id'
+      path: '/review/$id'
+      fullPath: '/review/$id'
+      preLoaderRoute: typeof AuthenticatedReviewIdRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
     }
   }
 }
-
-interface AuthenticatedReviewQueueRouteChildren {
-  AuthenticatedReviewQueueIdRoute: typeof AuthenticatedReviewQueueIdRoute
-  AuthenticatedReviewQueueIndexRoute: typeof AuthenticatedReviewQueueIndexRoute
-}
-
-const AuthenticatedReviewQueueRouteChildren: AuthenticatedReviewQueueRouteChildren =
-  {
-    AuthenticatedReviewQueueIdRoute: AuthenticatedReviewQueueIdRoute,
-    AuthenticatedReviewQueueIndexRoute: AuthenticatedReviewQueueIndexRoute,
-  }
-
-const AuthenticatedReviewQueueRouteWithChildren =
-  AuthenticatedReviewQueueRoute._addFileChildren(
-    AuthenticatedReviewQueueRouteChildren,
-  )
 
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedAdminRoute: typeof AuthenticatedAdminRoute
-  AuthenticatedBuildRoute: typeof AuthenticatedBuildRoute
-  AuthenticatedCatalogueRoute: typeof AuthenticatedCatalogueRoute
-  AuthenticatedConvertRoute: typeof AuthenticatedConvertRoute
-  AuthenticatedMySubmissionsRoute: typeof AuthenticatedMySubmissionsRoute
-  AuthenticatedReviewQueueRoute: typeof AuthenticatedReviewQueueRouteWithChildren
-  AuthenticatedTicketsRoute: typeof AuthenticatedTicketsRoute
+  AuthenticatedErpImportRoute: typeof AuthenticatedErpImportRoute
+  AuthenticatedHomeRoute: typeof AuthenticatedHomeRoute
+  AuthenticatedPdfPricelistRoute: typeof AuthenticatedPdfPricelistRoute
+  AuthenticatedUploadRoute: typeof AuthenticatedUploadRoute
+  AuthenticatedApprovalIdRoute: typeof AuthenticatedApprovalIdRoute
+  AuthenticatedItemRegistrationStandardRoute: typeof AuthenticatedItemRegistrationStandardRoute
+  AuthenticatedMySubmissionsIdRoute: typeof AuthenticatedMySubmissionsIdRoute
+  AuthenticatedReviewIdRoute: typeof AuthenticatedReviewIdRoute
+  AuthenticatedApprovalIndexRoute: typeof AuthenticatedApprovalIndexRoute
+  AuthenticatedItemRegistrationIndexRoute: typeof AuthenticatedItemRegistrationIndexRoute
+  AuthenticatedMySubmissionsIndexRoute: typeof AuthenticatedMySubmissionsIndexRoute
+  AuthenticatedReviewIndexRoute: typeof AuthenticatedReviewIndexRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAdminRoute: AuthenticatedAdminRoute,
-  AuthenticatedBuildRoute: AuthenticatedBuildRoute,
-  AuthenticatedCatalogueRoute: AuthenticatedCatalogueRoute,
-  AuthenticatedConvertRoute: AuthenticatedConvertRoute,
-  AuthenticatedMySubmissionsRoute: AuthenticatedMySubmissionsRoute,
-  AuthenticatedReviewQueueRoute: AuthenticatedReviewQueueRouteWithChildren,
-  AuthenticatedTicketsRoute: AuthenticatedTicketsRoute,
+  AuthenticatedErpImportRoute: AuthenticatedErpImportRoute,
+  AuthenticatedHomeRoute: AuthenticatedHomeRoute,
+  AuthenticatedPdfPricelistRoute: AuthenticatedPdfPricelistRoute,
+  AuthenticatedUploadRoute: AuthenticatedUploadRoute,
+  AuthenticatedApprovalIdRoute: AuthenticatedApprovalIdRoute,
+  AuthenticatedItemRegistrationStandardRoute:
+    AuthenticatedItemRegistrationStandardRoute,
+  AuthenticatedMySubmissionsIdRoute: AuthenticatedMySubmissionsIdRoute,
+  AuthenticatedReviewIdRoute: AuthenticatedReviewIdRoute,
+  AuthenticatedApprovalIndexRoute: AuthenticatedApprovalIndexRoute,
+  AuthenticatedItemRegistrationIndexRoute:
+    AuthenticatedItemRegistrationIndexRoute,
+  AuthenticatedMySubmissionsIndexRoute: AuthenticatedMySubmissionsIndexRoute,
+  AuthenticatedReviewIndexRoute: AuthenticatedReviewIndexRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =

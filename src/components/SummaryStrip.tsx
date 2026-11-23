@@ -1,6 +1,0 @@
-import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
-export type SummaryStat = { label: string; value: number; tone?: "warning" | "error"; onClick?: () => void };
-export function SummaryStrip({ stats }: { stats: SummaryStat[] }) {
-  return <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">{stats.map(s => <Button key={s.label} variant="ghost" onClick={s.onClick} disabled={!s.onClick} className={cn("h-auto min-h-20 flex-col items-start gap-1 rounded-lg border bg-card px-4 py-3 disabled:opacity-100", s.value > 0 && s.tone === "warning" && "border-warning/20 bg-warning-soft", s.value > 0 && s.tone === "error" && "border-destructive/20 bg-destructive-soft")}><span className={cn("text-[22px] font-bold tabular-nums", s.tone === "error" && s.value > 0 ? "text-destructive" : s.tone === "warning" && s.value > 0 ? "text-warning" : "text-foreground")}>{s.value.toLocaleString()}</span><span className="text-[11px] font-semibold uppercase text-muted-foreground">{s.label}</span></Button>)}</div>;
-}

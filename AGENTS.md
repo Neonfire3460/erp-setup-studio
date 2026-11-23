@@ -30,15 +30,15 @@ use the editor.
 <!-- LOVABLE:END -->
 
 ## Project rules
-- docs/SPEC.md (version 2) is the source of truth; build only the sections each prompt asks for.
-- Vendored files are used unchanged apart from a `// @ts-nocheck` first line where strict TS rejects them: src/lib/sheetParser.ts, src/lib/excelFiles.ts, src/server/shared/pricing.ts, src/server/shared/processing.ts. The spec's supabase/functions/_shared/ path is replaced by src/server/shared/ because this project uses server functions, not edge functions.
-- src/server/** is import-protected from client code; load it with `await import()` inside createServerFn handlers in src/lib/*.functions.ts.
-- Exchange rates, pricing rules, app_settings, ERP data, output rows and tickets are admin-only via RLS; signed-in users get brand and ERP info only via list_brands() and erp_check() (no prices).
-- The first auth user becomes admin via the on_auth_user_created_role trigger; roles change via admin_set_role(), which refuses to remove the last admin.
-- ERP data import parses in a Web Worker (SheetJS/PapaParse + readErpData), inserts batches into erp_items tagged with a new erp_imports id, activates it via activate_erp_import() (one small update), then deletes older imports' rows via delete_erp_import_rows() 10,000 at a time; no request touches all rows. Every ERP lookup must read only the active import (erp_items_active view or a join on erp_imports.active).
-- Pricing self-test cases live server-side in src/server/selfTestCases.server.ts and run through processSubmission with an in-memory context; only label and pass/fail return to the browser.
+- v3 (Item Registration) is the current app. The plan and decisions live outside the repo (kit v3: site-flow plan, gap-decisions.md gaps 1-26); docs/v3/migration-v3.sql is the database change (applied as drizzle/migrations/0009_v3_item_registration.sql).
+- Shared logic is plain TypeScript in src/lib/nmk/ (pricing, price check, template, ticket rows, ERP file, ERP import, categories, cross-check, PDF order and layout). It has no React or Supabase imports, so it runs in the browser, in workers and in server functions.
+- Server functions live in src/lib/v3/*.functions.ts; server-only helpers in src/server/v3/*.server.ts, loaded with `await import()` inside handlers (src/server/** is import-protected from client code).
+- Confidential: costs, exchange rates, overheads, divisors, margins and ERP data never reach a normal user's browser. Ticket rows (ir_ticket_rows), fx_rates, pricing_rules, app_settings and erp_items are staff-only under RLS; users get price-check results from server functions only.
+- Roles: admin, reviewer, approver, user (several per person). Admin implies every role. Roles change through admin_set_roles(), which keeps at least one admin.
+- Ticket status changes go through the ir_transition()/ir_approve() RPCs from server functions; drafts are written by the owner under RLS.
+- ERP import parses in a Web Worker (src/lib/nmk/erpImport.worker.ts), inserts batches into erp_items under a new erp_imports id, then merge_erp_import() replaces only the brands in the file. Every ERP lookup reads erp_items_active.
+- Emails go through the Resend REST API with the RESEND_API_KEY secret, logged in email_log; test mode sends everything to email_test_address. An email failure never blocks a ticket.
+- The PDF Pricelist is built in the browser with jsPDF + jspdf-autotable (import jsPDF from "jspdf/dist/jspdf.es.min.js", the Worker build can't resolve "jspdf"). Default logos are in public/pdf/.
 - Generate Excel files in the browser and prepare blobs before a download click to preserve browser user activation.
 - Implement the design guide's theme in src/styles.css using Tailwind v4 @theme inline, and load remote fonts through the root head; legacy index.css/tailwind.config.ts are not used by this project.
-- Keep reusable workflow visuals in src/components.
-- Submission workflows use authenticated server functions with explicit owner/admin checks, server-only processing helpers and service-only atomic persistence/approval RPCs; this keeps confidential output inaccessible to users and locks approved records.
-- Normal-user submission-row reads exclude cost and MSRP columns; Build displays only local uploaded costs, and reuse reads only safe submission choices.
+- Never commit ERP exports, vendor pricelists or other confidential data to the repo.

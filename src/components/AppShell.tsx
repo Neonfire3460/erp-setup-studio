@@ -1,17 +1,19 @@
 import type { ReactNode } from "react";
 import { Link, useNavigate, useRouteContext, useRouterState } from "@tanstack/react-router";
 import {
-  FileSpreadsheet,
+  Home,
   Boxes,
   Inbox,
-  Settings,
+  FileText,
   LogOut,
-  LayoutGrid,
   ClipboardCheck,
-  Ticket,
+  BadgeCheck,
+  Upload,
+  Database,
+  Settings,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
-import { badgesQuery } from "@/lib/workflow.queries";
+import { staffBadges } from "@/lib/v3/tickets.functions";
 import { BrandLockup } from "@/components/BrandLockup";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -27,25 +29,70 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar";
 
+type Item = {
+  title: string;
+  url: string;
+  icon: typeof Home;
+  badge?: "review" | "approval" | "upload";
+  admin?: boolean;
+};
+
 export function AppShell({ children }: { children: ReactNode }) {
-  const { user, isAdmin } = useRouteContext({ from: "/_authenticated" });
+  const { user, roles, isStaff, isReviewer, isApprover } = useRouteContext({
+    from: "/_authenticated",
+  });
   const path = useRouterState({ select: (s) => s.location.pathname });
   const navigate = useNavigate();
-  const { data: badges } = useQuery({ ...badgesQuery, enabled: isAdmin });
+  const { data: badges } = useQuery({
+    queryKey: ["staff-badges"],
+    queryFn: () => staffBadges(),
+    enabled: isStaff,
+    refetchInterval: 60000,
+  });
 
-  const items = [
-    { title: "Catalogue", url: "/catalogue", icon: LayoutGrid },
-    { title: "Convert", url: "/convert", icon: FileSpreadsheet },
-    { title: "Build", url: "/build", icon: Boxes },
-    { title: "My submissions", url: "/my-submissions", icon: Inbox },
-    ...(isAdmin
+  const items: Item[] = [
+    { title: "Home", url: "/home", icon: Home },
+    { title: "Item Registration", url: "/item-registration", icon: Boxes },
+    { title: "My Submissions", url: "/my-submissions", icon: Inbox },
+    { title: "PDF Pricelist", url: "/pdf-pricelist", icon: FileText },
+    ...(isReviewer
       ? [
-          { title: "Review queue", url: "/review-queue", icon: ClipboardCheck },
-          { title: "Tickets", url: "/tickets", icon: Ticket },
-          { title: "Admin", url: "/admin", icon: Settings },
+          {
+            title: "Review",
+            url: "/review",
+            icon: ClipboardCheck,
+            badge: "review",
+            admin: true,
+          } as Item,
         ]
       : []),
-  ] as const;
+    ...(isApprover
+      ? [
+          {
+            title: "Approval",
+            url: "/approval",
+            icon: BadgeCheck,
+            badge: "approval",
+            admin: true,
+          } as Item,
+        ]
+      : []),
+    ...(isReviewer
+      ? [
+          { title: "Upload", url: "/upload", icon: Upload, badge: "upload", admin: true } as Item,
+          { title: "ERP data import", url: "/erp-import", icon: Database, admin: true } as Item,
+        ]
+      : []),
+    ...(isStaff
+      ? [{ title: "Admin settings", url: "/admin", icon: Settings, admin: true } as Item]
+      : []),
+  ];
+  const firstAdmin = items.findIndex((i) => i.admin);
+  const roleText =
+    roles
+      .filter((r) => r !== "user")
+      .map((r) => r[0]!.toUpperCase() + r.slice(1))
+      .join(", ") || "Brand Manager";
 
   async function signOut() {
     await supabase.auth.signOut();
@@ -69,15 +116,15 @@ export function AppShell({ children }: { children: ReactNode }) {
             <SidebarGroup>
               <SidebarGroupContent>
                 <SidebarMenu>
-                  {items.map((item) => (
+                  {items.map((item, i) => (
                     <SidebarMenuItem key={item.url}>
-                      {item.url === "/review-queue" && (
+                      {i === firstAdmin && (
                         <p className="mb-3 mt-6 border-t pt-5 text-[11px] font-semibold text-muted-foreground group-data-[collapsible=icon]:hidden">
                           ADMIN
                         </p>
                       )}
                       <SidebarMenuButton
-                        className="h-11 px-4 data-[active=true]:border-l-[3px] data-[active=true]:border-primary data-[active=true]:text-primary data-[active=true]:font-semibold"
+                        className="h-11 px-4 data-[active=true]:border-l-[3px] data-[active=true]:border-primary data-[active=true]:font-semibold data-[active=true]:text-primary"
                         asChild
                         isActive={path.startsWith(item.url)}
                         tooltip={item.title}
@@ -85,11 +132,9 @@ export function AppShell({ children }: { children: ReactNode }) {
                         <Link to={item.url}>
                           <item.icon className="h-4 w-4" />
                           <span>{item.title}</span>
-                          {(item.url === "/tickets" || item.url === "/review-queue") && (
+                          {item.badge && (badges?.[item.badge] ?? 0) > 0 && (
                             <span className="ml-auto rounded-full bg-accent px-2 text-xs text-primary group-data-[collapsible=icon]:hidden">
-                              {item.url === "/tickets"
-                                ? (badges?.tickets ?? 0)
-                                : (badges?.review ?? 0)}
+                              {badges?.[item.badge]}
                             </span>
                           )}
                         </Link>
@@ -107,9 +152,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               </span>
               <div className="min-w-0">
                 <p className="truncate text-xs font-semibold">{user.email}</p>
-                <p className="text-xs text-muted-foreground">
-                  {isAdmin ? "Admin" : "Brand Manager"}
-                </p>
+                <p className="truncate text-xs text-muted-foreground">{roleText}</p>
               </div>
             </div>
             <SidebarMenu>
@@ -130,11 +173,14 @@ export function AppShell({ children }: { children: ReactNode }) {
                 <BrandLockup compact />
               </span>
             </div>
-            <span className="hidden max-w-48 truncate text-sm text-muted-foreground sm:block">
-              {user.email} {isAdmin ? "(admin)" : ""}
-            </span>
+            <Link
+              to="/my-submissions"
+              className="text-sm font-semibold text-primary hover:underline"
+            >
+              My Submissions
+            </Link>
           </header>
-          <main className="mx-auto w-full max-w-[1280px] min-w-0 flex-1 p-4 sm:p-8 lg:pt-2">
+          <main className="mx-auto w-full min-w-0 max-w-[1280px] flex-1 p-4 sm:p-8 lg:pt-2">
             {children}
           </main>
         </div>
