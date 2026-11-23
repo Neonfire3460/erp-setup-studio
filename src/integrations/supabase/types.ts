@@ -29,21 +29,98 @@ export type Database = {
         }
         Relationships: []
       }
+      approved_prices: {
+        Row: {
+          approved_at: string
+          brand_activity: string
+          currency: string | null
+          description: string | null
+          entity_code: string
+          inactive: number | null
+          item_code: string
+          retail_price: number | null
+          ticket_id: string | null
+        }
+        Insert: {
+          approved_at?: string
+          brand_activity: string
+          currency?: string | null
+          description?: string | null
+          entity_code: string
+          inactive?: number | null
+          item_code: string
+          retail_price?: number | null
+          ticket_id?: string | null
+        }
+        Update: {
+          approved_at?: string
+          brand_activity?: string
+          currency?: string | null
+          description?: string | null
+          entity_code?: string
+          inactive?: number | null
+          item_code?: string
+          retail_price?: number | null
+          ticket_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "approved_prices_ticket_id_fkey"
+            columns: ["ticket_id"]
+            isOneToOne: false
+            referencedRelation: "ir_tickets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      brand_ai_profiles: {
+        Row: {
+          brand_activity: string
+          header_signature: string
+          id: string
+          profile: Json
+          times_used: number
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          brand_activity: string
+          header_signature: string
+          id?: string
+          profile: Json
+          times_used?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          brand_activity?: string
+          header_signature?: string
+          id?: string
+          profile?: Json
+          times_used?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       brand_suppliers: {
         Row: {
           brand_activity: string
           entity_code: string
           supplier: string
+          supplier_name: string
         }
         Insert: {
           brand_activity: string
           entity_code: string
           supplier: string
+          supplier_name?: string
         }
         Update: {
           brand_activity?: string
           entity_code?: string
           supplier?: string
+          supplier_name?: string
         }
         Relationships: [
           {
@@ -66,17 +143,29 @@ export type Database = {
         Row: {
           active: boolean
           brand_activity: string
+          default_max_discount: number | null
           default_unit: string | null
+          entity_codes: string[]
+          last_currency: string | null
+          logo_path: string | null
         }
         Insert: {
           active?: boolean
           brand_activity: string
+          default_max_discount?: number | null
           default_unit?: string | null
+          entity_codes?: string[]
+          last_currency?: string | null
+          logo_path?: string | null
         }
         Update: {
           active?: boolean
           brand_activity?: string
+          default_max_discount?: number | null
           default_unit?: string | null
+          entity_codes?: string[]
+          last_currency?: string | null
+          logo_path?: string | null
         }
         Relationships: []
       }
@@ -134,6 +223,78 @@ export type Database = {
           sub_activity?: string | null
           sub_category_name?: string | null
           submission_id?: string | null
+        }
+        Relationships: []
+      }
+      categories: {
+        Row: {
+          active: boolean
+          category_code: string
+          category_name: string
+          family_code: string
+          family_name: string
+          group_code: string
+          group_name: string
+          midwich_code: string
+          review_note: string
+          sub_category_code: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          category_code: string
+          category_name: string
+          family_code: string
+          family_name: string
+          group_code: string
+          group_name: string
+          midwich_code?: string
+          review_note?: string
+          sub_category_code: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          category_code?: string
+          category_name?: string
+          family_code?: string
+          family_name?: string
+          group_code?: string
+          group_name?: string
+          midwich_code?: string
+          review_note?: string
+          sub_category_code?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      change_log: {
+        Row: {
+          action: string
+          changed_at: string
+          changed_by: string | null
+          id: number
+          new_row: Json | null
+          old_row: Json | null
+          table_name: string
+        }
+        Insert: {
+          action: string
+          changed_at?: string
+          changed_by?: string | null
+          id?: number
+          new_row?: Json | null
+          old_row?: Json | null
+          table_name: string
+        }
+        Update: {
+          action?: string
+          changed_at?: string
+          changed_by?: string | null
+          id?: number
+          new_row?: Json | null
+          old_row?: Json | null
+          table_name?: string
         }
         Relationships: []
       }
@@ -215,12 +376,61 @@ export type Database = {
         }
         Relationships: []
       }
+      email_log: {
+        Row: {
+          created_at: string
+          error: string | null
+          id: number
+          kind: string
+          real_to: string | null
+          status: string
+          subject: string
+          ticket_id: string | null
+          to_address: string
+        }
+        Insert: {
+          created_at?: string
+          error?: string | null
+          id?: number
+          kind: string
+          real_to?: string | null
+          status: string
+          subject: string
+          ticket_id?: string | null
+          to_address: string
+        }
+        Update: {
+          created_at?: string
+          error?: string | null
+          id?: number
+          kind?: string
+          real_to?: string | null
+          status?: string
+          subject?: string
+          ticket_id?: string | null
+          to_address?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_log_ticket_id_fkey"
+            columns: ["ticket_id"]
+            isOneToOne: false
+            referencedRelation: "ir_tickets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       entities: {
         Row: {
           active: boolean
           code: string
           currency: string
+          is_master: boolean
+          legal_name: string
           name: string
+          pdf_allowed: boolean
+          pdf_logo_path: string | null
+          pdf_terms_line: string
           region: string
           sort_order: number
         }
@@ -228,7 +438,12 @@ export type Database = {
           active?: boolean
           code: string
           currency: string
+          is_master?: boolean
+          legal_name?: string
           name: string
+          pdf_allowed?: boolean
+          pdf_logo_path?: string | null
+          pdf_terms_line?: string
           region: string
           sort_order?: number
         }
@@ -236,7 +451,12 @@ export type Database = {
           active?: boolean
           code?: string
           currency?: string
+          is_master?: boolean
+          legal_name?: string
           name?: string
+          pdf_allowed?: boolean
+          pdf_logo_path?: string | null
+          pdf_terms_line?: string
           region?: string
           sort_order?: number
         }
@@ -245,29 +465,38 @@ export type Database = {
       erp_imports: {
         Row: {
           active: boolean
+          brands: string[]
+          counts: Json | null
           entity_code: string
           file_name: string | null
           id: string
           imported_at: string
           imported_by: string | null
+          mode: string
           row_count: number
         }
         Insert: {
           active?: boolean
+          brands?: string[]
+          counts?: Json | null
           entity_code: string
           file_name?: string | null
           id?: string
           imported_at?: string
           imported_by?: string | null
+          mode?: string
           row_count?: number
         }
         Update: {
           active?: boolean
+          brands?: string[]
+          counts?: Json | null
           entity_code?: string
           file_name?: string | null
           id?: string
           imported_at?: string
           imported_by?: string | null
+          mode?: string
           row_count?: number
         }
         Relationships: [
@@ -288,6 +517,8 @@ export type Database = {
           brand_activity: string | null
           category_code: string | null
           category_name: string | null
+          cost_currency: string | null
+          cost_price: number | null
           description: string | null
           entity_code: string
           family_code: string | null
@@ -316,6 +547,8 @@ export type Database = {
           brand_activity?: string | null
           category_code?: string | null
           category_name?: string | null
+          cost_currency?: string | null
+          cost_price?: number | null
           description?: string | null
           entity_code: string
           family_code?: string | null
@@ -344,6 +577,8 @@ export type Database = {
           brand_activity?: string | null
           category_code?: string | null
           category_name?: string | null
+          cost_currency?: string | null
+          cost_price?: number | null
           description?: string | null
           entity_code?: string
           family_code?: string | null
@@ -421,6 +656,367 @@ export type Database = {
           },
         ]
       }
+      fx_rates: {
+        Row: {
+          from_currency: string
+          rate: number
+          to_currency: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          from_currency: string
+          rate: number
+          to_currency: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          from_currency?: string
+          rate?: number
+          to_currency?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fx_rates_from_currency_fkey"
+            columns: ["from_currency"]
+            isOneToOne: false
+            referencedRelation: "currencies"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "fx_rates_to_currency_fkey"
+            columns: ["to_currency"]
+            isOneToOne: false
+            referencedRelation: "currencies"
+            referencedColumns: ["code"]
+          },
+        ]
+      }
+      ir_ticket_edits: {
+        Row: {
+          actor: string | null
+          at: string
+          column_name: string
+          entity_code: string | null
+          id: number
+          item_code: string | null
+          new_value: Json | null
+          old_value: Json | null
+          row_id: string | null
+          ticket_id: string
+        }
+        Insert: {
+          actor?: string | null
+          at?: string
+          column_name: string
+          entity_code?: string | null
+          id?: number
+          item_code?: string | null
+          new_value?: Json | null
+          old_value?: Json | null
+          row_id?: string | null
+          ticket_id: string
+        }
+        Update: {
+          actor?: string | null
+          at?: string
+          column_name?: string
+          entity_code?: string | null
+          id?: number
+          item_code?: string | null
+          new_value?: Json | null
+          old_value?: Json | null
+          row_id?: string | null
+          ticket_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ir_ticket_edits_ticket_id_fkey"
+            columns: ["ticket_id"]
+            isOneToOne: false
+            referencedRelation: "ir_tickets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ir_ticket_events: {
+        Row: {
+          action: string
+          actor: string | null
+          at: string
+          comment: string | null
+          from_status: string | null
+          id: number
+          internal: boolean
+          ticket_id: string
+          to_status: string | null
+        }
+        Insert: {
+          action: string
+          actor?: string | null
+          at?: string
+          comment?: string | null
+          from_status?: string | null
+          id?: number
+          internal?: boolean
+          ticket_id: string
+          to_status?: string | null
+        }
+        Update: {
+          action?: string
+          actor?: string | null
+          at?: string
+          comment?: string | null
+          from_status?: string | null
+          id?: number
+          internal?: boolean
+          ticket_id?: string
+          to_status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ir_ticket_events_ticket_id_fkey"
+            columns: ["ticket_id"]
+            isOneToOne: false
+            referencedRelation: "ir_tickets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ir_ticket_items: {
+        Row: {
+          alt_code: string
+          alt_description: string
+          cost: number | null
+          description: string
+          entity_costs: Json
+          erp_description: string | null
+          id: string
+          include: boolean
+          is_new: boolean
+          item_code: string
+          line_no: number
+          new_item: Json | null
+          price_on_request: boolean
+          source: Json | null
+          ticket_id: string
+          use_vendor_description: boolean
+        }
+        Insert: {
+          alt_code?: string
+          alt_description?: string
+          cost?: number | null
+          description?: string
+          entity_costs?: Json
+          erp_description?: string | null
+          id?: string
+          include?: boolean
+          is_new?: boolean
+          item_code: string
+          line_no: number
+          new_item?: Json | null
+          price_on_request?: boolean
+          source?: Json | null
+          ticket_id: string
+          use_vendor_description?: boolean
+        }
+        Update: {
+          alt_code?: string
+          alt_description?: string
+          cost?: number | null
+          description?: string
+          entity_costs?: Json
+          erp_description?: string | null
+          id?: string
+          include?: boolean
+          is_new?: boolean
+          item_code?: string
+          line_no?: number
+          new_item?: Json | null
+          price_on_request?: boolean
+          source?: Json | null
+          ticket_id?: string
+          use_vendor_description?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ir_ticket_items_ticket_id_fkey"
+            columns: ["ticket_id"]
+            isOneToOne: false
+            referencedRelation: "ir_tickets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ir_ticket_rows: {
+        Row: {
+          calc: Json | null
+          current_retail: number | null
+          entity_code: string
+          erp: Json
+          flags: string[]
+          id: string
+          is_new: boolean
+          item_code: string
+          line_no: number
+          names: Json | null
+          retail_change_pct: number | null
+          ticket_id: string
+          updated_at: string
+        }
+        Insert: {
+          calc?: Json | null
+          current_retail?: number | null
+          entity_code: string
+          erp: Json
+          flags?: string[]
+          id?: string
+          is_new?: boolean
+          item_code: string
+          line_no: number
+          names?: Json | null
+          retail_change_pct?: number | null
+          ticket_id: string
+          updated_at?: string
+        }
+        Update: {
+          calc?: Json | null
+          current_retail?: number | null
+          entity_code?: string
+          erp?: Json
+          flags?: string[]
+          id?: string
+          is_new?: boolean
+          item_code?: string
+          line_no?: number
+          names?: Json | null
+          retail_change_pct?: number | null
+          ticket_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ir_ticket_rows_ticket_id_fkey"
+            columns: ["ticket_id"]
+            isOneToOne: false
+            referencedRelation: "ir_tickets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ir_tickets: {
+        Row: {
+          approver_id: string | null
+          brand_activity: string
+          counts: Json | null
+          created_at: string
+          cross_check: Json | null
+          decided_at: string | null
+          draft: Json | null
+          entities: Json
+          id: string
+          missing_setup: Json
+          price_summary: Json | null
+          proceeded_at: string | null
+          region: string
+          reject_reason: string | null
+          resubmit_of: string | null
+          review_started_at: string | null
+          reviewer_id: string | null
+          revision: number
+          source: string
+          special_instructions: string
+          status: string
+          std_currency: string
+          step: number
+          submitted_at: string | null
+          suppliers: Json
+          ticket_no: string | null
+          updated_at: string
+          uploaded_at: string | null
+          uploads: Json
+          user_id: string
+          verified_at: string | null
+        }
+        Insert: {
+          approver_id?: string | null
+          brand_activity: string
+          counts?: Json | null
+          created_at?: string
+          cross_check?: Json | null
+          decided_at?: string | null
+          draft?: Json | null
+          entities?: Json
+          id?: string
+          missing_setup?: Json
+          price_summary?: Json | null
+          proceeded_at?: string | null
+          region?: string
+          reject_reason?: string | null
+          resubmit_of?: string | null
+          review_started_at?: string | null
+          reviewer_id?: string | null
+          revision?: number
+          source?: string
+          special_instructions?: string
+          status?: string
+          std_currency?: string
+          step?: number
+          submitted_at?: string | null
+          suppliers?: Json
+          ticket_no?: string | null
+          updated_at?: string
+          uploaded_at?: string | null
+          uploads?: Json
+          user_id?: string
+          verified_at?: string | null
+        }
+        Update: {
+          approver_id?: string | null
+          brand_activity?: string
+          counts?: Json | null
+          created_at?: string
+          cross_check?: Json | null
+          decided_at?: string | null
+          draft?: Json | null
+          entities?: Json
+          id?: string
+          missing_setup?: Json
+          price_summary?: Json | null
+          proceeded_at?: string | null
+          region?: string
+          reject_reason?: string | null
+          resubmit_of?: string | null
+          review_started_at?: string | null
+          reviewer_id?: string | null
+          revision?: number
+          source?: string
+          special_instructions?: string
+          status?: string
+          std_currency?: string
+          step?: number
+          submitted_at?: string | null
+          suppliers?: Json
+          ticket_no?: string | null
+          updated_at?: string
+          uploaded_at?: string | null
+          uploads?: Json
+          user_id?: string
+          verified_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ir_tickets_resubmit_of_fkey"
+            columns: ["resubmit_of"]
+            isOneToOne: false
+            referencedRelation: "ir_tickets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       mapping_corrections: {
         Row: {
           ai_value: string | null
@@ -448,6 +1044,21 @@ export type Database = {
           headers?: Json | null
           id?: string
           user_value?: string | null
+        }
+        Relationships: []
+      }
+      midwich_families: {
+        Row: {
+          code: string
+          name: string
+        }
+        Insert: {
+          code: string
+          name: string
+        }
+        Update: {
+          code?: string
+          name?: string
         }
         Relationships: []
       }
@@ -489,6 +1100,68 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "submissions"
             referencedColumns: ["id"]
+          },
+        ]
+      }
+      pdf_history: {
+        Row: {
+          brand_activity: string
+          created_at: string
+          created_by: string
+          entity_code: string
+          id: string
+          item_count: number
+          title: string
+        }
+        Insert: {
+          brand_activity: string
+          created_at?: string
+          created_by?: string
+          entity_code: string
+          id?: string
+          item_count: number
+          title: string
+        }
+        Update: {
+          brand_activity?: string
+          created_at?: string
+          created_by?: string
+          entity_code?: string
+          id?: string
+          item_count?: number
+          title?: string
+        }
+        Relationships: []
+      }
+      pdf_orders: {
+        Row: {
+          brand_activity: string
+          item_codes: string[]
+          source_file: string | null
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          brand_activity: string
+          item_codes?: string[]
+          source_file?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          brand_activity?: string
+          item_codes?: string[]
+          source_file?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pdf_orders_brand_activity_fkey"
+            columns: ["brand_activity"]
+            isOneToOne: true
+            referencedRelation: "brands"
+            referencedColumns: ["brand_activity"]
           },
         ]
       }
@@ -557,6 +1230,30 @@ export type Database = {
             referencedColumns: ["code"]
           },
         ]
+      }
+      profiles: {
+        Row: {
+          active: boolean
+          created_at: string
+          email: string
+          full_name: string
+          id: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          email?: string
+          full_name?: string
+          id: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          email?: string
+          full_name?: string
+          id?: string
+        }
+        Relationships: []
       }
       sub_activities: {
         Row: {
@@ -767,6 +1464,27 @@ export type Database = {
           },
         ]
       }
+      units: {
+        Row: {
+          active: boolean
+          code: string
+          name: string
+          sort_order: number
+        }
+        Insert: {
+          active?: boolean
+          code: string
+          name: string
+          sort_order?: number
+        }
+        Update: {
+          active?: boolean
+          code?: string
+          name?: string
+          sort_order?: number
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           id: string
@@ -825,6 +1543,8 @@ export type Database = {
           brand_activity: string | null
           category_code: string | null
           category_name: string | null
+          cost_currency: string | null
+          cost_price: number | null
           description: string | null
           entity_code: string | null
           family_code: string | null
@@ -875,6 +1595,8 @@ export type Database = {
           brand_activity: string | null
           category_code: string | null
           category_name: string | null
+          cost_currency: string | null
+          cost_price: number | null
           description: string | null
           entity_code: string
           family_code: string | null
@@ -906,9 +1628,11 @@ export type Database = {
       admin_list_users: {
         Args: never
         Returns: {
+          active: boolean
           created_at: string
           email: string
-          role: Database["public"]["Enums"]["app_role"]
+          full_name: string
+          roles: string[]
           user_id: string
         }[]
       }
@@ -917,6 +1641,10 @@ export type Database = {
           _role: Database["public"]["Enums"]["app_role"]
           _user_id: string
         }
+        Returns: undefined
+      }
+      admin_set_roles: {
+        Args: { _roles: string[]; _user_id: string }
         Returns: undefined
       }
       approve_submission: {
@@ -950,6 +1678,10 @@ export type Database = {
           row_count: number
         }[]
       }
+      has_any_role: {
+        Args: { _roles: string[]; _user_id: string }
+        Returns: boolean
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -957,6 +1689,100 @@ export type Database = {
         }
         Returns: boolean
       }
+      ir_approve: {
+        Args: { _actor: string; _ticket: string }
+        Returns: {
+          approver_id: string | null
+          brand_activity: string
+          counts: Json | null
+          created_at: string
+          cross_check: Json | null
+          decided_at: string | null
+          draft: Json | null
+          entities: Json
+          id: string
+          missing_setup: Json
+          price_summary: Json | null
+          proceeded_at: string | null
+          region: string
+          reject_reason: string | null
+          resubmit_of: string | null
+          review_started_at: string | null
+          reviewer_id: string | null
+          revision: number
+          source: string
+          special_instructions: string
+          status: string
+          std_currency: string
+          step: number
+          submitted_at: string | null
+          suppliers: Json
+          ticket_no: string | null
+          updated_at: string
+          uploaded_at: string | null
+          uploads: Json
+          user_id: string
+          verified_at: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "ir_tickets"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      ir_transition: {
+        Args: {
+          _action: string
+          _actor: string
+          _comment?: string
+          _from: string[]
+          _internal?: boolean
+          _patch?: Json
+          _ticket: string
+          _to: string
+        }
+        Returns: {
+          approver_id: string | null
+          brand_activity: string
+          counts: Json | null
+          created_at: string
+          cross_check: Json | null
+          decided_at: string | null
+          draft: Json | null
+          entities: Json
+          id: string
+          missing_setup: Json
+          price_summary: Json | null
+          proceeded_at: string | null
+          region: string
+          reject_reason: string | null
+          resubmit_of: string | null
+          review_started_at: string | null
+          reviewer_id: string | null
+          revision: number
+          source: string
+          special_instructions: string
+          status: string
+          std_currency: string
+          step: number
+          submitted_at: string | null
+          suppliers: Json
+          ticket_no: string | null
+          updated_at: string
+          uploaded_at: string | null
+          uploads: Json
+          user_id: string
+          verified_at: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "ir_tickets"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      is_staff: { Args: { _user_id: string }; Returns: boolean }
       list_brands: {
         Args: never
         Returns: {
@@ -965,6 +1791,18 @@ export type Database = {
           sub_activities: string[]
         }[]
       }
+      list_brands_v3: {
+        Args: never
+        Returns: {
+          brand_activity: string
+          default_unit: string
+          entity_codes: string[]
+          has_logo: boolean
+          last_currency: string
+          sub_activities: string[]
+        }[]
+      }
+      merge_erp_import: { Args: { _import_id: string }; Returns: number }
       persist_submission_processing: {
         Args: {
           _counts: Json
@@ -978,7 +1816,7 @@ export type Database = {
       }
     }
     Enums: {
-      app_role: "admin" | "user"
+      app_role: "admin" | "user" | "reviewer" | "approver"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1106,7 +1944,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["admin", "user"],
+      app_role: ["admin", "user", "reviewer", "approver"],
     },
   },
 } as const

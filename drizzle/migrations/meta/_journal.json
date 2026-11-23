@@ -64,6 +64,13 @@
       "when": 1794925559986,
       "tag": "0008_submission_counts_once",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1795443240717,
+      "tag": "0009_v3_item_registration",
+      "breakpoints": true
     }
   ]
 }
