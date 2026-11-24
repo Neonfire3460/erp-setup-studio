@@ -9,6 +9,7 @@ import { Switch } from "@/components/ui/switch";
 import { Card, Label11, errText, fmtDate } from "@/components/v3/ui";
 import { defaultBrandLogo, fileToLogo } from "@/lib/v3/logo";
 import { learnOrder, type PdfTextItem } from "@/lib/nmk/pdfOrder";
+import { brandErpCodes } from "@/lib/v3/erp.functions";
 import { cn } from "@/lib/utils";
 import { ListEditor, loadAll, looseDb, type Row } from "./ListEditor";
 
@@ -283,17 +284,7 @@ function BrandPanel({
     setReading(true);
     setLearned(null);
     try {
-      const known: string[] = [];
-      for (let a = 0; ; a += 1000) {
-        const r = await looseDb
-          .from("erp_items_active")
-          .select("item_code")
-          .ilike("brand_activity", like(name))
-          .range(a, a + 999);
-        if (r.error) throw new Error(r.error.message);
-        known.push(...r.data.map((x: Row) => String(x["item_code"])));
-        if (r.data.length < 1000) break;
-      }
+      const known = await brandErpCodes({ data: { brand: name } });
       if (!known.length)
         throw new Error(`No ${name} items in the ERP data yet. Import an ERP export first.`);
       const res = learnOrder(await pdfText(file), [...new Set(known)]);

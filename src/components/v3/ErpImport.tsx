@@ -25,16 +25,10 @@ import {
 } from "@/components/ui/table";
 import { UploadArea } from "@/components/UploadArea";
 import { Card, Label11, Stat, errText, fmtDate } from "@/components/v3/ui";
-import {
-  brandSummary,
-  diffErp,
-  erpItemToRow,
-  rowToErpItem,
-  type ErpItem,
-  type ReadErpResult,
-} from "@/lib/nmk/erp";
+import { brandSummary, diffErp, erpItemToRow, type ReadErpResult } from "@/lib/nmk/erp";
 import type { CategoryRow } from "@/lib/nmk/categories";
 import { crossCheckTickets } from "@/lib/v3/tickets.functions";
+import { storedForBrands } from "@/lib/v3/erp.functions";
 
 type Entity = { code: string; name: string };
 type Hist = {
@@ -48,7 +42,13 @@ type Hist = {
   active: boolean;
   counts: unknown;
 };
-type Diff = ReturnType<typeof diffErp>;
+type Diff = {
+  stored: number;
+  added: number | null;
+  changed: number | null;
+  removed: number | null;
+  allBrands: boolean;
+};
 type Check = Awaited<ReturnType<typeof crossCheckTickets>>;
 
 function parseInWorker(
@@ -202,20 +202,26 @@ export function ErpImport({
         return;
       }
       setStatus("Comparing with the stored data...");
-      const names = r.brands.map((b) => b.brand);
-      const stored: ErpItem[] = [];
-      for (let i = 0; i < names.length; i += 50) {
-        const part = await all((a, b) =>
-          supabase
-            .from("erp_items_active")
-            .select("*")
-            .eq("entity_code", entity)
-            .in("brand_activity", names.slice(i, i + 50))
-            .range(a, b),
-        );
-        stored.push(...part.map((x) => rowToErpItem(x as never)));
-      }
-      setDiff(diffErp(stored, r.items));
+      const cmp = await storedForBrands({
+        data: { entityCode: entity, brands: r.brands.map((b) => b.brand) },
+      });
+      if (cmp.items) {
+        const d = diffErp(cmp.items, r.items);
+        setDiff({
+          stored: cmp.stored,
+          added: d.added.length,
+          changed: d.changed.length,
+          removed: d.removed.length,
+          allBrands: false,
+        });
+      } else
+        setDiff({
+          stored: cmp.stored,
+          added: null,
+          changed: null,
+          removed: null,
+          allBrands: cmp.allBrands,
+        });
       setStatus("");
     } catch (e) {
       setStatus(errText(e));
@@ -254,9 +260,10 @@ export function ErpImport({
           active: false,
           counts: {
             missingColumns: res.missingColumns.map((m) => m.header),
-            added: diff.added.length,
-            changed: diff.changed.length,
-            removed: diff.removed.length,
+            added: diff.added,
+            changed: diff.changed,
+            removed: diff.removed,
+            storedBefore: diff.stored,
             demoSkipped: res.demoSkipped,
           },
         })
@@ -455,15 +462,23 @@ export function ErpImport({
           )}
           {diff && (
             <>
-              <div className="grid grid-cols-3 gap-3 sm:max-w-xl">
-                <Stat label="New items" value={diff.added.length} />
-                <Stat label="Changed" value={diff.changed.length} />
-                <Stat
-                  label="No longer in file"
-                  value={diff.removed.length}
-                  tone={diff.removed.length ? "warning" : undefined}
-                />
-              </div>
+              {diff.added !== null ? (
+                <div className="grid grid-cols-3 gap-3 sm:max-w-xl">
+                  <Stat label="New items" value={diff.added} />
+                  <Stat label="Changed" value={diff.changed} />
+                  <Stat
+                    label="No longer in file"
+                    value={diff.removed}
+                    tone={diff.removed ? "warning" : undefined}
+                  />
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  {diff.stored.toLocaleString()} items {diff.allBrands ? "" : "of these brands "}are
+                  stored for {entity} now. The file has {res.items.length.toLocaleString()}. A
+                  detailed comparison is shown for smaller files.
+                </p>
+              )}
               <p className="text-xs text-muted-foreground">
                 Only {res.brands.length === 1 ? "this brand is" : "these brands are"} replaced in{" "}
                 {entity}. Every other brand stays as it is.
