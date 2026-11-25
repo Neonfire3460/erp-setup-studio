@@ -113,7 +113,7 @@ export function Wizard({ ticketId }: { ticketId?: string | undefined }) {
   return (
     <div className="min-w-0 space-y-6">
       <PageHeader
-        title="Standard Item Registration"
+        title="Register items: NMK brands"
         description={
           draft.brand
             ? `${draft.brand} · ${draft.entities.map((e) => e.code).join(", ") || "no entities yet"}${resubmitOf ? " · resubmission" : ""}`

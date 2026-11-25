@@ -17,7 +17,7 @@ import { cn } from "@/lib/utils";
 import { fmtDay } from "@/lib/nmk/dates";
 
 export const Route = createFileRoute("/_authenticated/my-submissions/")({
-  head: () => headFor("My Submissions", "Your item registration tickets and their status."),
+  head: () => headFor("My requests", "Your item registration tickets and their status."),
   component: MySubmissions,
 });
 
@@ -34,7 +34,7 @@ function MySubmissions() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="My Submissions"
+        title="My requests"
         description="Each status change is also emailed to you."
         actions={
           <Button

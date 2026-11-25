@@ -8,7 +8,7 @@ import { Card, Label11, PageHeader, Tile, fmtDate } from "@/components/v3/ui";
 import { Button } from "@/components/ui/button";
 
 export const Route = createFileRoute("/_authenticated/item-registration/")({
-  head: () => headFor("Item Registration", "Register NMK brand items, make PDF pricelists."),
+  head: () => headFor("Register items", "Register NMK brand items, make PDF pricelists."),
   component: ItemRegistrationMenu,
 });
 
@@ -21,13 +21,13 @@ function ItemRegistrationMenu() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Item Registration"
-        description="Register items for the ERP, or make a PDF pricelist."
+        title="What are you registering?"
+        description="Pick one. Your drafts are saved as you go."
       />
       <div className="grid gap-4 sm:grid-cols-2">
         <Tile
-          title="Standard Item Registration"
-          subtitle="NMK Brand Portfolio"
+          title="NMK brands"
+          subtitle="Upload the vendor pricelist (the AI reads it) or our template. 7 short steps."
           icon={Boxes}
           live
           onClick={() =>
@@ -36,22 +36,17 @@ function ItemRegistrationMenu() {
         />
         <Tile
           title="PDF Pricelist"
-          subtitle="Brand + entity → PDF"
+          subtitle="Pick a brand and an entity. Get a branded PDF of active items with list prices."
           icon={FileText}
           live
           onClick={() => navigate({ to: "/pdf-pricelist" })}
         />
-        <Tile title="Third Party Brands" icon={Handshake} live={false} onClick={soon} />
-        <Tile
-          title="Bill of Material (BOM) Registration"
-          icon={ListTree}
-          live={false}
-          onClick={soon}
-        />
+        <Tile title="Third party brands" icon={Handshake} live={false} onClick={soon} />
+        <Tile title="Bundles (BOM)" icon={ListTree} live={false} onClick={soon} />
       </div>
       {drafts.length > 0 && (
         <Card>
-          <Label11>Your drafts</Label11>
+          <Label11>Pick up where you left off</Label11>
           <div className="mt-3 divide-y">
             {drafts.map((d) => (
               <div key={d.id} className="flex flex-wrap items-center gap-3 py-2 text-sm">
@@ -67,7 +62,7 @@ function ItemRegistrationMenu() {
                     navigate({ to: "/item-registration/standard", search: { ticket: d.id } })
                   }
                 >
-                  Continue
+                  Continue draft
                 </Button>
               </div>
             ))}

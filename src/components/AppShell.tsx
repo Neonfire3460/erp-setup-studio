@@ -4,13 +4,13 @@ import {
   Home,
   Boxes,
   Inbox,
-  FileText,
   LogOut,
   ClipboardCheck,
   BadgeCheck,
   Upload,
   Database,
   Settings,
+  ChevronDown,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { staffBadges } from "@/lib/v3/tickets.functions";
@@ -25,6 +25,9 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarMenuSub,
+  SidebarMenuSubButton,
+  SidebarMenuSubItem,
   SidebarProvider,
   SidebarTrigger,
 } from "@/components/ui/sidebar";
@@ -36,6 +39,13 @@ type Item = {
   badge?: "review" | "approval" | "upload";
   admin?: boolean;
 };
+
+const REGISTER_CHILDREN: { title: string; url?: string }[] = [
+  { title: "NMK brands", url: "/item-registration/standard" },
+  { title: "PDF pricelist", url: "/pdf-pricelist" },
+  { title: "Third party brands" },
+  { title: "Bundles (BOM)" },
+];
 
 export function AppShell({ children }: { children: ReactNode }) {
   const { user, roles, isStaff, isReviewer, isApprover } = useRouteContext({
@@ -52,9 +62,9 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   const items: Item[] = [
     { title: "Home", url: "/home", icon: Home },
-    { title: "Item Registration", url: "/item-registration", icon: Boxes },
-    { title: "My Submissions", url: "/my-submissions", icon: Inbox },
-    { title: "PDF Pricelist", url: "/pdf-pricelist", icon: FileText },
+    { title: "Register items", url: "/item-registration", icon: Boxes },
+    { title: "View ERP data", url: "/erp-items", icon: Database },
+    { title: "My requests", url: "/my-submissions", icon: Inbox },
     ...(isReviewer
       ? [
           {
@@ -126,7 +136,11 @@ export function AppShell({ children }: { children: ReactNode }) {
                       <SidebarMenuButton
                         className="h-11 px-4 data-[active=true]:border-l-[3px] data-[active=true]:border-primary data-[active=true]:font-semibold data-[active=true]:text-primary"
                         asChild
-                        isActive={path.startsWith(item.url)}
+                        isActive={
+                          item.url === "/item-registration"
+                            ? path === item.url
+                            : path.startsWith(item.url)
+                        }
                         tooltip={item.title}
                       >
                         <Link to={item.url}>
@@ -137,8 +151,30 @@ export function AppShell({ children }: { children: ReactNode }) {
                               {badges?.[item.badge]}
                             </span>
                           )}
+                          {item.url === "/item-registration" && (
+                            <ChevronDown className="ml-auto h-4 w-4 opacity-60" />
+                          )}
                         </Link>
                       </SidebarMenuButton>
+                      {item.url === "/item-registration" && (
+                        <SidebarMenuSub className="border-l-2 border-primary/25">
+                          {REGISTER_CHILDREN.map((c) => (
+                            <SidebarMenuSubItem key={c.title}>
+                              {c.url ? (
+                                <SidebarMenuSubButton asChild isActive={path.startsWith(c.url)}>
+                                  <Link to={c.url}>
+                                    <span>{c.title}</span>
+                                  </Link>
+                                </SidebarMenuSubButton>
+                              ) : (
+                                <span className="flex h-7 items-center px-2 text-sm text-muted-foreground/70">
+                                  {c.title} · soon
+                                </span>
+                              )}
+                            </SidebarMenuSubItem>
+                          ))}
+                        </SidebarMenuSub>
+                      )}
                     </SidebarMenuItem>
                   ))}
                 </SidebarMenu>
@@ -177,7 +213,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               to="/my-submissions"
               className="text-sm font-semibold text-primary hover:underline"
             >
-              My Submissions
+              My requests
             </Link>
           </header>
           <main className="mx-auto w-full min-w-0 max-w-[1280px] flex-1 p-4 sm:p-8 lg:pt-2">

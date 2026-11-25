@@ -1,15 +1,14 @@
-// ERP Items: what a brand has in each entity's ERP today, split Active and Inactive. Brand managers move items
-// between the two lists (tick several, or drag), then send the changes to the reviewer as an Active/Inactive
-// ticket. Waiting and approved changes show in place, so the page always reflects what they asked for.
+// View ERP data: what a brand has in each entity's ERP today. Brand managers filter (Active / Inactive, entity,
+// category, web), tick items page by page or "select all matching", make them inactive or active, then send
+// the changes to the reviewer as an Active/Inactive ticket. Waiting and approved changes show in place.
+// Brands can have 2,000+ codes, so the table renders one page (50 by default) at a time.
 import { useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  ArrowLeftRight,
-  ArrowRight,
-  CircleCheck,
-  CircleSlash,
-  Globe,
+  ChevronLeft,
+  ChevronRight,
+  Download,
   Loader2,
   Search,
   Send,
@@ -32,8 +31,8 @@ import {
 } from "@/components/ui/dialog";
 import { BrandCombo } from "@/components/v3/BrandCombo";
 import { DateField } from "@/components/v3/DateField";
-import { Card, Empty, Label11, PageHeader, errText, fmtNum } from "@/components/v3/ui";
-import { headFor } from "@/lib/v3/page";
+import { Empty, errText, fmtNum } from "@/components/v3/ui";
+import { downloadBlob, headFor, XLSX_TYPE } from "@/lib/v3/page";
 import { wizardOptions } from "@/lib/v3/wizard.functions";
 import { itemsBrowse, submitStatusChange } from "@/lib/v3/status.functions";
 import { REVIEW_DAYS, earliestNeededBy, fmtDay, isoDate, today } from "@/lib/nmk/dates";
@@ -41,14 +40,14 @@ import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/erp-items")({
   head: () =>
-    headFor("ERP Items", "See a brand's items in the ERP and make items active or inactive."),
+    headFor("View ERP data", "See a brand's items in the ERP and make items active or inactive."),
   component: Page,
 });
 
 type Data = Awaited<ReturnType<typeof itemsBrowse>>;
 type Item = Data["items"][number];
 const keyOf = (i: Pick<Item, "entityCode" | "itemCode">) => `${i.entityCode}|${i.itemCode}`;
-const PAGE = 300;
+const SIZES = [50, 100, 200] as const;
 
 function Page() {
   const qc = useQueryClient();
@@ -68,7 +67,11 @@ function Page() {
   const [neededBy, setNeededBy] = useState<string | undefined>();
   const [effective, setEffective] = useState<string | undefined>();
   const [note, setNote] = useState("");
-  const [over, setOver] = useState<0 | 1 | null>(null);
+  const [status, setStatus] = useState<"active" | "inactive" | "all">("active");
+  const [cat, setCat] = useState("all");
+  const [web, setWeb] = useState<"any" | "on" | "off">("any");
+  const [page, setPage] = useState(0);
+  const [size, setSize] = useState<number>(50);
 
   const data = useQuery({
     queryKey: ["erp-items", brand],
@@ -78,17 +81,28 @@ function Page() {
   });
   const items = useMemo(() => data.data?.items ?? [], [data.data]);
   const ents = data.data?.entities ?? [];
-  const shown = useMemo(() => {
+  const stateOf = (i: Item) => moves.get(keyOf(i)) ?? i.inactive;
+  // Filter everything except status first, so the tab counts match the other filters.
+  const base = useMemo(() => {
     const s = q.trim().toLowerCase();
     return items.filter(
       (i) =>
         (entity === "all" || i.entityCode === entity) &&
+        (cat === "all" || (i.family ?? "") === cat) &&
+        (web === "any" || (web === "on" ? i.web === 1 : i.web !== 1)) &&
         (!s || i.itemCode.toLowerCase().includes(s) || i.description.toLowerCase().includes(s)),
     );
-  }, [items, entity, q]);
-  const stateOf = (i: Item) => moves.get(keyOf(i)) ?? i.inactive;
-  const active = shown.filter((i) => stateOf(i) === 0);
-  const inactive = shown.filter((i) => stateOf(i) === 1);
+  }, [items, entity, cat, web, q]);
+  const nActive = base.filter((i) => stateOf(i) === 0).length;
+  const shown =
+    status === "all" ? base : base.filter((i) => stateOf(i) === (status === "active" ? 0 : 1));
+  const pages = Math.max(1, Math.ceil(shown.length / size));
+  const cur = Math.min(page, pages - 1);
+  const rows = shown.slice(cur * size, cur * size + size);
+  const families = useMemo(
+    () => [...new Set(items.map((i) => i.family).filter((f): f is string => !!f))].sort(),
+    [items],
+  );
   const byKey = useMemo(() => new Map(items.map((i) => [keyOf(i), i])), [items]);
   const changes = [...moves.entries()].filter(([k, v]) => byKey.get(k)?.inactive !== v);
   const toIn = changes.filter(([, v]) => v === 1).length;
@@ -106,6 +120,10 @@ function Page() {
       return n;
     });
     setPicked(new Set());
+    if (keys.length > locked.length)
+      toast.success(
+        `${keys.length - locked.length} item${keys.length - locked.length === 1 ? "" : "s"} marked ${to ? "inactive" : "active"}. Send for review when you're ready.`,
+      );
     if (locked.length)
       toast.warning(
         `${locked.length} item${locked.length === 1 ? " is" : "s are"} already waiting in a request, so ${locked.length === 1 ? "it" : "they"} stayed.`,
@@ -146,16 +164,65 @@ function Page() {
     }
   }
 
+  async function exportExcel() {
+    const XLSX = await import("xlsx");
+    const ws = XLSX.utils.json_to_sheet(
+      shown.map((i) => ({
+        "Item Code": i.itemCode,
+        Description: i.description,
+        Entity: i.entityCode,
+        Status: stateOf(i) === 1 ? "Inactive" : "Active",
+        Web: i.web === 1 ? "Shown" : "Hidden",
+        "B2B prices": i.b2b === 1 ? "Shown" : "Hidden",
+        Cost: i.cost ?? "",
+        "Cost currency": i.costCurrency ?? "",
+        Retail: i.retail ?? "",
+        "Max discount %": i.maxDiscount ?? "",
+        Family: i.family ?? "",
+        Group: i.group ?? "",
+        Category: i.category ?? "",
+        "Sub category": i.subCategory ?? "",
+        "Midwich family": i.midwich ?? "",
+      })),
+    );
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "ERP data");
+    const buf = XLSX.write(wb, { type: "array", bookType: "xlsx" }) as ArrayBuffer;
+    downloadBlob(
+      new Blob([buf], { type: XLSX_TYPE }),
+      `${brand} ERP data ${isoDate(today())}.xlsx`.replace(/[\\/:*?"<>|]+/g, "-"),
+    );
+  }
+
   const brands = (opts.data?.brands ?? []).map((b) => b.brand_activity);
+  const reset = () => {
+    setPage(0);
+    setPicked(new Set());
+  };
+  const pageKeys = rows.filter((i) => i.change?.state !== "pending").map(keyOf);
+  const pageAll = pageKeys.length > 0 && pageKeys.every((k) => picked.has(k));
+  const sel = [...picked];
+  const selActive = sel.filter((k) => {
+    const it = byKey.get(k);
+    return it && stateOf(it) === 0;
+  });
+  const selInactive = sel.length - selActive.length;
+  const statusWord = status === "all" ? "" : `${status} `;
   return (
-    <div className="min-w-0 space-y-6 pb-28">
-      <PageHeader
-        title="ERP Items"
-        description="What each entity's ERP has for a brand today. Move items between Active and Inactive, then send the changes to the admin."
-      />
-      <Card className="flex flex-wrap items-end gap-4">
-        <div className="w-full max-w-sm">
-          <Label11>Brand</Label11>
+    <div className="min-w-0 space-y-4 pb-28">
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div className="min-w-0">
+          <p className="text-sm font-semibold text-muted-foreground">Home › View ERP data</p>
+          <h1 className="mt-1 text-3xl font-extrabold tracking-[-0.03em]">
+            {brand || "View ERP data"}{" "}
+            {items.length > 0 && (
+              <span className="text-base font-semibold text-muted-foreground">
+                {fmtNum(items.length)} items in {ents.length} entit{ents.length === 1 ? "y" : "ies"}
+              </span>
+            )}
+          </h1>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
           <BrandCombo
             brands={brands}
             value={brand}
@@ -163,26 +230,37 @@ function Page() {
               if (changes.length && !window.confirm("Drop the changes you haven't sent?")) return;
               setBrand(b);
               setMoves(new Map());
-              setPicked(new Set());
               setEntity("all");
+              setCat("all");
+              reset();
             }}
-            className="mt-1 h-11 w-full text-base"
+            className="h-11 w-64"
           />
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              type="search"
+              aria-label="Search"
+              className="h-11 w-72 pl-9"
+              placeholder="Search code or description"
+              value={q}
+              onChange={(e) => {
+                setQ(e.target.value);
+                reset();
+              }}
+            />
+          </div>
+          <Button
+            variant="outline"
+            className="h-11"
+            disabled={!shown.length}
+            onClick={() => void exportExcel()}
+          >
+            <Download />
+            Export to Excel
+          </Button>
         </div>
-        <div className="relative w-full max-w-xs">
-          <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            className="h-11 pl-9"
-            placeholder="Search code or description"
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-          />
-        </div>
-        <label className="flex h-11 items-center gap-2 text-sm">
-          <Switch checked={cats} onCheckedChange={setCats} />
-          Show categories (with Midwich Family)
-        </label>
-      </Card>
+      </div>
 
       {!brand && (
         <Empty
@@ -207,133 +285,284 @@ function Page() {
 
       {items.length > 0 && (
         <>
-          <div className="flex flex-wrap gap-2">
-            {[{ code: "all", name: "All entities", count: items.length }, ...ents].map((e) => (
-              <button
-                key={e.code}
-                type="button"
-                onClick={() => setEntity(e.code)}
-                className={cn(
-                  "rounded-full border px-4 py-1.5 text-sm font-semibold transition",
-                  entity === e.code
-                    ? "border-primary bg-primary text-primary-foreground shadow"
-                    : "bg-card hover:border-primary",
-                )}
-              >
-                {e.code === "all" ? e.name : `${e.code} · ${e.name}`}{" "}
-                <span className="opacity-70">{e.count}</span>
-              </button>
-            ))}
-          </div>
-          <div className="grid gap-5 xl:grid-cols-2">
-            {([0, 1] as const).map((side) => {
-              const list = side === 0 ? active : inactive;
-              const sel = list.filter((i) => picked.has(keyOf(i)));
-              return (
-                <section
-                  key={side}
-                  onDragOver={(e) => {
-                    e.preventDefault();
-                    setOver(side);
-                  }}
-                  onDragLeave={() => setOver(null)}
-                  onDrop={(e) => {
-                    e.preventDefault();
-                    setOver(null);
-                    const keys = (e.dataTransfer.getData("text/plain") || "")
-                      .split("\n")
-                      .filter(Boolean);
-                    if (keys.length) move(keys, side);
+          <div className="flex flex-wrap items-center gap-2.5 rounded-[14px] border bg-card p-3">
+            <div role="group" aria-label="Status" className="flex rounded-[10px] bg-muted p-1">
+              {(
+                [
+                  ["active", `Active ${fmtNum(nActive)}`],
+                  ["inactive", `Inactive ${fmtNum(base.length - nActive)}`],
+                  ["all", "All"],
+                ] as const
+              ).map(([v, label]) => (
+                <button
+                  key={v}
+                  type="button"
+                  onClick={() => {
+                    setStatus(v);
+                    reset();
                   }}
                   className={cn(
-                    "min-w-0 space-y-3 rounded-[14px] border-2 bg-card p-4 transition",
-                    side === 0 ? "border-success/30" : "border-muted-foreground/20",
-                    over === side && "border-dashed border-primary bg-accent/40",
+                    "h-9 rounded-lg px-3.5 text-sm font-bold text-muted-foreground transition",
+                    status === v && "bg-card text-foreground shadow-sm",
+                    status === v && v === "active" && "text-success",
                   )}
                 >
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <h2 className="flex items-center gap-2 text-lg font-bold">
-                      {side === 0 ? (
-                        <CircleCheck className="size-5 text-success" />
-                      ) : (
-                        <CircleSlash className="size-5 text-muted-foreground" />
-                      )}
-                      {side === 0 ? "Active" : "Inactive / discontinued"}
-                      <span className="rounded-full bg-muted px-2 py-0.5 text-sm font-semibold text-muted-foreground">
-                        {list.length}
-                      </span>
-                    </h2>
-                    <div className="flex items-center gap-2">
-                      <label className="flex items-center gap-2 text-sm">
-                        <Checkbox
-                          checked={list.length > 0 && sel.length === list.length}
-                          onCheckedChange={(v) =>
-                            setPicked((p) => {
-                              const n = new Set(p);
-                              list.forEach((i) =>
-                                v === true ? n.add(keyOf(i)) : n.delete(keyOf(i)),
-                              );
-                              return n;
-                            })
-                          }
-                        />
-                        Select all
-                      </label>
-                      <Button
-                        size="sm"
-                        disabled={!sel.length}
-                        variant={side === 0 ? "outline" : "default"}
-                        onClick={() => move(sel.map(keyOf), side === 0 ? 1 : 0)}
-                      >
-                        <ArrowLeftRight />
-                        Move {sel.length || ""} to {side === 0 ? "Inactive" : "Active"}
-                      </Button>
-                    </div>
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    Tick items and press Move, or drag them to the other list.
-                  </p>
-                  <List
-                    list={list}
-                    picked={picked}
-                    setPicked={setPicked}
-                    moves={moves}
-                    cats={cats}
-                    showEntity={entity === "all"}
-                    undo={(k) =>
-                      setMoves((m) => {
-                        const n = new Map(m);
-                        n.delete(k);
-                        return n;
-                      })
-                    }
-                  />
-                </section>
-              );
-            })}
+                  {label}
+                </button>
+              ))}
+            </div>
+            <span className="h-7 w-px bg-border" />
+            <FilterSelect
+              label="Entity"
+              value={entity}
+              onChange={(v) => {
+                setEntity(v);
+                reset();
+              }}
+              options={[
+                ["all", "All entities"],
+                ...ents.map(
+                  (e) => [e.code, `${e.code} · ${e.name} (${e.count})`] as [string, string],
+                ),
+              ]}
+            />
+            <FilterSelect
+              label="Category"
+              value={cat}
+              onChange={(v) => {
+                setCat(v);
+                reset();
+              }}
+              options={[
+                ["all", "Every category"],
+                ...families.map((f) => [f, f] as [string, string]),
+              ]}
+            />
+            <FilterSelect
+              label="Website"
+              value={web}
+              onChange={(v) => {
+                setWeb(v as typeof web);
+                reset();
+              }}
+              options={[
+                ["any", "Web: any"],
+                ["on", "Shown on web"],
+                ["off", "Hidden from web"],
+              ]}
+            />
+            <label className="ml-auto flex items-center gap-2 text-sm font-semibold">
+              <Switch checked={cats} onCheckedChange={setCats} />
+              Show categories
+            </label>
+          </div>
+
+          {picked.size > 0 && (
+            <div className="flex flex-wrap items-center gap-3 rounded-xl border border-primary/30 bg-accent px-4 py-3 text-sm">
+              <b>
+                {fmtNum(picked.size)} selected
+                {picked.size === pageKeys.filter((k) => picked.has(k)).length
+                  ? " on this page"
+                  : ""}
+                .
+              </b>
+              {shown.length > picked.size && (
+                <button
+                  type="button"
+                  className="font-bold text-primary hover:underline"
+                  onClick={() =>
+                    setPicked(
+                      new Set(shown.filter((i) => i.change?.state !== "pending").map(keyOf)),
+                    )
+                  }
+                >
+                  Select all {fmtNum(shown.length)} {statusWord}items
+                </button>
+              )}
+              <span className="ml-auto flex flex-wrap gap-2">
+                {selActive.length > 0 && (
+                  <Button
+                    size="sm"
+                    className="bg-slate-700 hover:bg-slate-800"
+                    onClick={() => move(selActive, 1)}
+                  >
+                    Make {fmtNum(selActive.length)} inactive
+                  </Button>
+                )}
+                {selInactive > 0 && (
+                  <Button
+                    size="sm"
+                    className="bg-success text-white hover:bg-success/90"
+                    onClick={() => {
+                      const a = new Set(selActive);
+                      move(
+                        sel.filter((k) => !a.has(k)),
+                        0,
+                      );
+                    }}
+                  >
+                    Make {fmtNum(selInactive)} active
+                  </Button>
+                )}
+                <Button size="sm" variant="outline" onClick={() => setPicked(new Set())}>
+                  Clear
+                </Button>
+              </span>
+            </div>
+          )}
+
+          <div className="overflow-hidden rounded-[14px] border bg-card">
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse text-sm">
+                <thead>
+                  <tr className="bg-muted/50 text-left text-xs uppercase tracking-wide text-muted-foreground">
+                    <th className="w-10 px-3.5 py-3">
+                      <Checkbox
+                        aria-label="Select this page"
+                        checked={pageAll}
+                        onCheckedChange={(v) =>
+                          setPicked((p) => {
+                            const n = new Set(p);
+                            pageKeys.forEach((k) => (v === true ? n.add(k) : n.delete(k)));
+                            return n;
+                          })
+                        }
+                      />
+                    </th>
+                    <th className="px-2 py-3">Item code</th>
+                    <th className="px-2 py-3">Description</th>
+                    {entity === "all" && <th className="px-2 py-3">Entity</th>}
+                    <th className="px-2 py-3">Web</th>
+                    <th className="px-2 py-3">B2B prices</th>
+                    <th className="px-2 py-3 text-right">Cost</th>
+                    <th className="px-2 py-3 text-right">Retail</th>
+                    <th className="px-2 py-3 text-right">Max disc.</th>
+                    <th className="px-3.5 py-3">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((i) => (
+                    <Row
+                      key={keyOf(i)}
+                      i={i}
+                      picked={picked.has(keyOf(i))}
+                      setPicked={setPicked}
+                      state={stateOf(i)}
+                      mine={moves.has(keyOf(i)) && moves.get(keyOf(i)) !== i.inactive}
+                      cats={cats}
+                      showEntity={entity === "all"}
+                      undo={() =>
+                        setMoves((m) => {
+                          const n = new Map(m);
+                          n.delete(keyOf(i));
+                          return n;
+                        })
+                      }
+                    />
+                  ))}
+                </tbody>
+              </table>
+              {!rows.length && (
+                <p className="p-10 text-center text-sm text-muted-foreground">
+                  Nothing matches these filters.
+                </p>
+              )}
+            </div>
+            <div className="flex flex-wrap items-center justify-between gap-3 border-t px-4 py-3 text-sm text-muted-foreground">
+              <span>
+                Showing{" "}
+                <b className="text-foreground">
+                  {shown.length ? fmtNum(cur * size + 1) : 0}–{fmtNum(cur * size + rows.length)}
+                </b>{" "}
+                of <b className="text-foreground">{fmtNum(shown.length)}</b> {statusWord}items
+              </span>
+              <span className="flex items-center gap-1.5">
+                <Button
+                  size="icon"
+                  variant="outline"
+                  className="size-9"
+                  aria-label="Previous page"
+                  disabled={cur === 0}
+                  onClick={() => setPage(cur - 1)}
+                >
+                  <ChevronLeft />
+                </Button>
+                {pageList(cur, pages).map((n, idx) =>
+                  n === null ? (
+                    <span key={`gap${idx}`} className="px-1">
+                      …
+                    </span>
+                  ) : (
+                    <Button
+                      key={n}
+                      size="icon"
+                      variant={n === cur ? "default" : "outline"}
+                      className="size-9"
+                      onClick={() => setPage(n)}
+                    >
+                      {n + 1}
+                    </Button>
+                  ),
+                )}
+                <Button
+                  size="icon"
+                  variant="outline"
+                  className="size-9"
+                  aria-label="Next page"
+                  disabled={cur >= pages - 1}
+                  onClick={() => setPage(cur + 1)}
+                >
+                  <ChevronRight />
+                </Button>
+                <select
+                  aria-label="Rows per page"
+                  className="ml-2 h-9 rounded-lg border bg-card px-2 text-sm"
+                  value={size}
+                  onChange={(e) => {
+                    setSize(Number(e.target.value));
+                    setPage(0);
+                  }}
+                >
+                  {SIZES.map((n) => (
+                    <option key={n} value={n}>
+                      {n} per page
+                    </option>
+                  ))}
+                </select>
+              </span>
+            </div>
           </div>
         </>
       )}
 
       {changes.length > 0 && (
-        <div className="fixed inset-x-0 bottom-0 z-30 border-t bg-card/95 shadow-[0_-8px_24px_rgba(0,0,0,0.08)] backdrop-blur">
-          <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-6 py-4">
-            <p className="text-sm">
-              <b className="text-base">
-                {changes.length} change{changes.length === 1 ? "" : "s"} ready
+        <div className="fixed inset-x-4 bottom-4 z-30 mx-auto max-w-6xl rounded-2xl bg-[#0B1460] text-white shadow-[0_16px_36px_rgba(11,20,96,0.3)]">
+          <div className="flex flex-wrap items-center justify-between gap-3 px-6 py-4">
+            <p className="text-[15px]">
+              <b className="text-lg">
+                {fmtNum(changes.length)} change{changes.length === 1 ? "" : "s"} ready
               </b>{" "}
-              <span className="text-muted-foreground">
-                · {toIn} to Inactive · {changes.length - toIn} to Active · not sent yet
+              <span className="text-white/80">
+                · {fmtNum(toIn)} to inactive · {fmtNum(changes.length - toIn)} to active · not sent
+                yet
               </span>
             </p>
             <div className="flex gap-2">
-              <Button variant="ghost" onClick={() => setMoves(new Map())}>
+              <Button
+                variant="outline"
+                className="border-white/30 bg-transparent text-white hover:bg-white/10 hover:text-white"
+                onClick={() => setMoves(new Map())}
+              >
                 <Undo2 />
                 Undo all
               </Button>
-              <Button size="lg" onClick={() => setDialog(true)}>
+              <Button
+                size="lg"
+                className="bg-gradient-to-r from-[#5B4CF0] to-[#1FB7B5] font-extrabold hover:opacity-95"
+                onClick={() => setDialog(true)}
+              >
                 <Send />
-                Send to admin
+                Send for review
               </Button>
             </div>
           </div>
@@ -344,7 +573,7 @@ function Page() {
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>
-              Send {changes.length} change{changes.length === 1 ? "" : "s"} to the admin
+              Send {fmtNum(changes.length)} change{changes.length === 1 ? "" : "s"} for review
             </DialogTitle>
             <DialogDescription>
               The reviewer checks them, then the change goes to the ERP. This takes at least{" "}
@@ -352,6 +581,23 @@ function Page() {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
+            <div className="max-h-40 overflow-auto rounded-lg border bg-muted/30 p-2 text-xs">
+              {changes.slice(0, 200).map(([k, v]) => {
+                const it = byKey.get(k);
+                return (
+                  <p key={k} className="flex justify-between gap-2 py-0.5">
+                    <span className="font-semibold">
+                      {it?.itemCode}{" "}
+                      <span className="font-normal text-muted-foreground">{it?.entityCode}</span>
+                    </span>
+                    <span>{v ? "→ Inactive" : "→ Active"}</span>
+                  </p>
+                );
+              })}
+              {changes.length > 200 && (
+                <p className="pt-1 text-muted-foreground">and {changes.length - 200} more</p>
+              )}
+            </div>
             <DateField
               label="Needed by (required)"
               value={neededBy}
@@ -366,7 +612,7 @@ function Page() {
               clearable
             />
             <div className="space-y-1">
-              <p className="text-sm font-semibold">Note for the admin (optional)</p>
+              <p className="text-sm font-semibold">Note for the reviewer (optional)</p>
               <Textarea
                 rows={3}
                 value={note}
@@ -381,7 +627,7 @@ function Page() {
             </Button>
             <Button disabled={sending || !neededBy} onClick={() => void send()}>
               {sending ? <Loader2 className="animate-spin" /> : <Send />}
-              Send
+              Send for review
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -390,142 +636,154 @@ function Page() {
   );
 }
 
-const Flag = ({ on, label }: { on: number | null; label: string }) => (
+/** Page buttons: first, last, and two either side of the current page. */
+function pageList(cur: number, pages: number): (number | null)[] {
+  const out: (number | null)[] = [];
+  for (let n = 0; n < pages; n++) {
+    if (n === 0 || n === pages - 1 || Math.abs(n - cur) <= 1) out.push(n);
+    else if (out[out.length - 1] !== null) out.push(null);
+  }
+  return out;
+}
+
+function FilterSelect({
+  label,
+  value,
+  onChange,
+  options,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  options: [string, string][];
+}) {
+  return (
+    <select
+      aria-label={label}
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      className="h-10 max-w-[220px] rounded-[10px] border-[1.5px] bg-card px-2.5 text-sm font-semibold"
+    >
+      {options.map(([v, l]) => (
+        <option key={v} value={v}>
+          {l}
+        </option>
+      ))}
+    </select>
+  );
+}
+
+const Shown = ({ on }: { on: number | null }) => (
   <span
-    className={cn(
-      "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold",
-      on === 1 ? "bg-success-soft text-success" : "bg-muted text-muted-foreground",
-    )}
+    className={cn("text-[13px] font-bold", on === 1 ? "text-success" : "text-muted-foreground")}
   >
-    <Globe className="size-3" />
-    {label} {on === 1 ? "on" : "off"}
+    {on === 1 ? "Shown" : "Hidden"}
   </span>
 );
 
-function List({
-  list,
+function Row({
+  i,
   picked,
   setPicked,
-  moves,
+  state,
+  mine,
   cats,
   showEntity,
   undo,
 }: {
-  list: Item[];
-  picked: Set<string>;
+  i: Item;
+  picked: boolean;
   setPicked: (f: (s: Set<string>) => Set<string>) => void;
-  moves: Map<string, 0 | 1>;
+  state: 0 | 1;
+  mine: boolean;
   cats: boolean;
   showEntity: boolean;
-  undo: (k: string) => void;
+  undo: () => void;
 }) {
-  const [limit, setLimit] = useState(PAGE);
-  if (!list.length)
-    return (
-      <p className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
-        Nothing here. Drop items here to move them.
-      </p>
-    );
+  const k = keyOf(i);
+  const waiting = i.change?.state === "pending";
+  const approved = i.change?.state === "approved";
   return (
-    <div className="max-h-[70vh] space-y-1.5 overflow-auto pr-1">
-      {list.slice(0, limit).map((i) => {
-        const k = keyOf(i);
-        const mine = moves.has(k) && moves.get(k) !== i.inactive;
-        const waiting = i.change?.state === "pending";
-        const approved = i.change?.state === "approved";
-        return (
-          <div
-            key={k}
-            draggable={!waiting}
-            onDragStart={(e) => {
-              const keys = picked.has(k) ? [...picked] : [k];
-              e.dataTransfer.setData("text/plain", keys.join("\n"));
-              e.dataTransfer.effectAllowed = "move";
-            }}
+    <tr
+      className={cn(
+        "border-t align-top",
+        picked && "bg-accent/50",
+        waiting && "bg-warning-soft/40",
+      )}
+    >
+      <td className="px-3.5 py-2.5">
+        <Checkbox
+          aria-label={`Select ${i.itemCode}`}
+          disabled={waiting}
+          checked={picked}
+          onCheckedChange={(v) =>
+            setPicked((p) => {
+              const n = new Set(p);
+              if (v === true) n.add(k);
+              else n.delete(k);
+              return n;
+            })
+          }
+        />
+      </td>
+      <td className="whitespace-nowrap px-2 py-2.5 font-bold">{i.itemCode}</td>
+      <td className="max-w-[360px] px-2 py-2.5 text-muted-foreground">
+        <p className="truncate" title={i.description}>
+          {i.description}
+        </p>
+        {cats && (
+          <p className="truncate text-[12px]">
+            {[i.family, i.group, i.category, i.subCategory].filter(Boolean).join(" › ") ||
+              "No category"}
+            {i.midwich ? ` · Midwich: ${i.midwich}` : ""}
+          </p>
+        )}
+      </td>
+      {showEntity && (
+        <td className="px-2 py-2.5">
+          <span className="rounded-md bg-muted px-2 py-0.5 text-xs font-bold">{i.entityCode}</span>
+        </td>
+      )}
+      <td className="px-2 py-2.5">
+        <Shown on={i.web} />
+      </td>
+      <td className="px-2 py-2.5">
+        <Shown on={i.b2b} />
+      </td>
+      <td className="whitespace-nowrap px-2 py-2.5 text-right tabular-nums">
+        {fmtNum(i.cost)} <span className="text-xs text-muted-foreground">{i.costCurrency}</span>
+      </td>
+      <td className="px-2 py-2.5 text-right tabular-nums">{fmtNum(i.retail)}</td>
+      <td className="px-2 py-2.5 text-right tabular-nums">
+        {i.maxDiscount === null || i.maxDiscount === undefined ? "-" : `${i.maxDiscount}%`}
+      </td>
+      <td className="whitespace-nowrap px-3.5 py-2.5">
+        {waiting ? (
+          <span className="rounded-full bg-warning-soft px-2.5 py-0.5 text-xs font-bold text-warning">
+            Waiting for review · {i.change!.ticketNo}
+          </span>
+        ) : approved ? (
+          <span className="rounded-full bg-success-soft px-2.5 py-0.5 text-xs font-bold text-success">
+            Approved · going into the ERP
+          </span>
+        ) : mine ? (
+          <span className="rounded-full bg-accent px-2.5 py-0.5 text-xs font-bold text-primary">
+            Will be {state ? "inactive" : "active"} ·{" "}
+            <button type="button" className="underline" onClick={undo}>
+              undo
+            </button>
+          </span>
+        ) : (
+          <span
             className={cn(
-              "group flex gap-3 rounded-lg border bg-background p-2.5 transition hover:border-primary/50 hover:shadow-sm",
-              !waiting && "cursor-grab active:cursor-grabbing",
-              picked.has(k) && "border-primary bg-accent/50",
-              mine && "border-l-4 border-l-primary",
-              waiting && "border-l-4 border-l-warning bg-warning-soft/40",
-              approved && "border-l-4 border-l-success",
+              "rounded-full px-2.5 py-0.5 text-xs font-bold",
+              state ? "bg-muted text-muted-foreground" : "bg-success-soft text-success",
             )}
           >
-            <Checkbox
-              className="mt-0.5"
-              disabled={waiting}
-              checked={picked.has(k)}
-              onCheckedChange={(v) =>
-                setPicked((p) => {
-                  const n = new Set(p);
-                  if (v === true) n.add(k);
-                  else n.delete(k);
-                  return n;
-                })
-              }
-            />
-            <div className="min-w-0 flex-1 space-y-1">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="font-semibold">{i.itemCode}</span>
-                {showEntity && (
-                  <span className="rounded bg-muted px-1.5 text-[11px] font-semibold">
-                    {i.entityCode}
-                  </span>
-                )}
-                <Flag on={i.web} label="Web" />
-                <Flag on={i.b2b} label="B2B" />
-                {mine && (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-accent px-2 py-0.5 text-[11px] font-semibold text-primary">
-                    <ArrowRight className="size-3" />
-                    Your change, not sent
-                    <button type="button" className="ml-1 underline" onClick={() => undo(k)}>
-                      undo
-                    </button>
-                  </span>
-                )}
-                {waiting && (
-                  <span className="rounded-full bg-warning-soft px-2 py-0.5 text-[11px] font-semibold text-warning">
-                    Waiting for review · {i.change!.ticketNo}
-                  </span>
-                )}
-                {approved && (
-                  <span className="rounded-full bg-success-soft px-2 py-0.5 text-[11px] font-semibold text-success">
-                    Approved · {i.change!.ticketNo} · going into the ERP
-                  </span>
-                )}
-              </div>
-              <p className="truncate text-[13px] text-muted-foreground" title={i.description}>
-                {i.description}
-              </p>
-              <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-[12px] tabular-nums">
-                <span>
-                  <span className="text-muted-foreground">Cost</span> <b>{fmtNum(i.cost)}</b>{" "}
-                  {i.costCurrency}
-                </span>
-                <span>
-                  <span className="text-muted-foreground">Retail</span> <b>{fmtNum(i.retail)}</b>
-                </span>
-                <span>
-                  <span className="text-muted-foreground">Max discount</span>{" "}
-                  <b>{i.maxDiscount ?? "-"}%</b>
-                </span>
-              </div>
-              {cats && (
-                <p className="text-[12px] text-muted-foreground">
-                  {[i.family, i.group, i.category, i.subCategory].filter(Boolean).join(" › ") ||
-                    "No category"}
-                  {i.midwich ? ` · Midwich: ${i.midwich}` : ""}
-                </p>
-              )}
-            </div>
-          </div>
-        );
-      })}
-      {list.length > limit && (
-        <Button variant="ghost" className="w-full" onClick={() => setLimit((l) => l + PAGE)}>
-          Show {Math.min(PAGE, list.length - limit)} more of {list.length - limit}
-        </Button>
-      )}
-    </div>
+            {state ? "Inactive" : "Active"}
+          </span>
+        )}
+      </td>
+    </tr>
   );
 }

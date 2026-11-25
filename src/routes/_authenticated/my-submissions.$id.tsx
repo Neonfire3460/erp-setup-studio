@@ -92,7 +92,7 @@ function TicketView() {
     <div className="space-y-5">
       <Button variant="ghost" size="sm" onClick={() => navigate({ to: "/my-submissions" })}>
         <ArrowLeft />
-        My Submissions
+        My requests
       </Button>
       <PageHeader
         title={`${t.ticket_no ?? "Ticket"} · ${t.brand_activity}`}

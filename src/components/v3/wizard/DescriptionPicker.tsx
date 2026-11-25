@@ -11,6 +11,7 @@ import { aiDescribe } from "@/lib/v3/aiItems.functions";
 import { codeKey } from "@/lib/nmk/util";
 import type { TicketDraft, TicketLine } from "@/lib/nmk/types";
 import { cn } from "@/lib/utils";
+import { usePaged } from "@/components/v3/Pager";
 
 type Diff = { itemCode: string; erpDescription: string; vendorDescription: string };
 type Choice = "erp" | "vendor" | "custom";
@@ -59,6 +60,7 @@ export function DescriptionPicker({
           l.aiDescription || (l.description !== vendor ? l.description : x.erpDescription),
       };
     });
+  const paged = usePaged(diffs, 50);
   const withAi = diffs.filter((d) => byCode.get(codeKey(d.itemCode))?.aiDescription);
 
   async function runAi() {
@@ -149,7 +151,7 @@ export function DescriptionPicker({
         </div>
       </div>
       <div className="max-h-[560px] divide-y overflow-auto rounded-lg border">
-        {diffs.map((x) => {
+        {paged.rows.map((x) => {
           const l = byCode.get(codeKey(x.itemCode));
           if (!l) return null;
           const c = choiceOf(l);
@@ -198,6 +200,7 @@ export function DescriptionPicker({
           );
         })}
       </div>
+      {paged.pager}
     </Card>
   );
 }

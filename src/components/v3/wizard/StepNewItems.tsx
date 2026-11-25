@@ -30,6 +30,7 @@ import { checkDraft } from "@/lib/nmk/ticket";
 import { aiSuggestNewItems } from "@/lib/v3/aiItems.functions";
 import type { NewItemFields, TicketLine } from "@/lib/nmk/types";
 import { cn } from "@/lib/utils";
+import { Pager } from "@/components/v3/Pager";
 import { brandOf, toCategoryRows, type PriceCheckData, type StepProps } from "./shared";
 
 const sel = "h-8 w-full min-w-0 rounded-md border border-input bg-background px-2 text-[13px]";
@@ -96,6 +97,8 @@ function ShowHide({
   );
 }
 
+const ROWS = 50;
+
 export function StepNewItems({
   draft,
   setDraft,
@@ -114,6 +117,8 @@ export function StepNewItems({
   const [ai, setAi] = useState<Map<number, { fields: Set<string>; why: string }>>(new Map());
   const [aiBusy, setAiBusy] = useState(false);
   const [popup, setPopup] = useState(false);
+  const [page, setPage] = useState(0);
+  const [onlyMissing, setOnlyMissing] = useState(false);
   const known = pc?.known ?? [];
   const missing = checkDraft(draft, {
     units: opts.units.map((u) => u.code),
@@ -305,6 +310,25 @@ export function StepNewItems({
   };
 
   const allPicked = lines.length > 0 && lines.every((l) => picked.has(l.lineNo));
+  // One page of rows at a time: a brand can send 2,000+ new codes and each row has a dozen inputs.
+  const view = onlyMissing ? lines.filter((l) => missingRows.has(l.lineNo)) : lines;
+  const pages = Math.max(1, Math.ceil(view.length / ROWS));
+  const cur = Math.min(page, pages - 1);
+  const pageRows = view.slice(cur * ROWS, cur * ROWS + ROWS);
+  const goTo = (lineNo: number | undefined) => {
+    if (!lineNo) return;
+    let idx = view.findIndex((l) => l.lineNo === lineNo);
+    if (idx < 0) {
+      setOnlyMissing(false);
+      idx = lines.findIndex((l) => l.lineNo === lineNo);
+    }
+    if (idx >= 0) setPage(Math.floor(idx / ROWS));
+    setTimeout(
+      () => document.getElementById(`line-${lineNo}`)?.scrollIntoView({ block: "center" }),
+      50,
+    );
+  };
+  const pager = <Pager cur={cur} pages={pages} total={view.length} size={ROWS} setPage={setPage} />;
   const bulkVals = Object.fromEntries(Object.entries(bulk).filter(([, v]) => !empty(v))) as Fields;
   const isAi = (lineNo: number, k: string) => ai.get(lineNo)?.fields.has(k) ?? false;
 
@@ -350,11 +374,7 @@ export function StepNewItems({
               size="sm"
               variant="link"
               className="h-auto p-0 text-warning underline"
-              onClick={() => {
-                const first = missing[0]?.lineNo;
-                if (first)
-                  document.getElementById(`line-${first}`)?.scrollIntoView({ block: "center" });
-              }}
+              onClick={() => goTo(missing[0]?.lineNo)}
             >
               Go to the first one
             </Button>
@@ -474,6 +494,19 @@ export function StepNewItems({
           </div>
         </div>
 
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <label className="flex items-center gap-2 text-sm font-semibold">
+            <Checkbox
+              checked={onlyMissing}
+              onCheckedChange={(v) => {
+                setOnlyMissing(v === true);
+                setPage(0);
+              }}
+            />
+            Only rows with missing details ({missingRows.size})
+          </label>
+          {pager}
+        </div>
         <div className="overflow-auto rounded-lg border">
           <table className="w-max min-w-full border-separate border-spacing-0 text-[13px]">
             <thead className="bg-muted text-left text-[11px] font-semibold uppercase tracking-[0.04em] text-muted-foreground">
@@ -511,7 +544,7 @@ export function StepNewItems({
               </tr>
             </thead>
             <tbody>
-              {lines.map((l) => {
+              {pageRows.map((l) => {
                 const n = l.newItem!;
                 const cat = n.subCategoryCode ? categoryBySub(cats, n.subCategoryCode) : null;
                 const miss = (v: unknown) =>
@@ -722,6 +755,7 @@ export function StepNewItems({
             </tbody>
           </table>
         </div>
+        {pager}
         {subs.length === 0 && (
           <p className="text-xs text-warning">
             This brand has no Sub Activities yet. An admin adds them in Admin settings → Brands.
@@ -755,10 +789,7 @@ export function StepNewItems({
                   className="w-full rounded px-2 py-1 text-left hover:bg-muted"
                   onClick={() => {
                     setPopup(false);
-                    if (m.lineNo)
-                      document
-                        .getElementById(`line-${m.lineNo}`)
-                        ?.scrollIntoView({ block: "center" });
+                    goTo(m.lineNo);
                   }}
                 >
                   {m.message}
