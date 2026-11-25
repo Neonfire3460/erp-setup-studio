@@ -39,6 +39,7 @@ import { EntityCard } from "@/components/EntityCard";
 import { UploadArea } from "@/components/UploadArea";
 import { Card, Label11, errText, fmtNum } from "@/components/v3/ui";
 import { cn } from "@/lib/utils";
+import { StepVendor } from "./StepVendor";
 import { downloadBlob, XLSX_TYPE } from "@/lib/v3/page";
 import { templatePrefill } from "@/lib/v3/wizard.functions";
 import {
@@ -272,13 +273,8 @@ export function StepBrand({ draft, setDraft, opts, next, busy }: StepProps) {
               active={draft.source === "ai"}
               icon={Sparkles}
               title="Option A · Vendor pricelist (AI)"
-              text="Upload the vendor's PDF or Excel pricelist and the AI reads codes, descriptions and costs. Coming in the next update."
-              disabled
-              onClick={() =>
-                toast("Option A is coming in the next update", {
-                  description: "Use the template for now.",
-                })
-              }
+              text="Upload the vendor's PDF or Excel pricelist. The AI works out which column is which, and every code and price is copied from your file."
+              onClick={() => setDraft((d) => ({ ...d, source: "ai" }))}
             />
             <OptionCard
               active={draft.source === "template"}
@@ -424,20 +420,7 @@ export function StepPrices({ draft, setDraft, next, back, busy }: StepProps) {
   }
 
   if (draft.source === "ai")
-    return (
-      <Card>
-        <p className="text-sm">
-          Option A is coming in the next update.{" "}
-          <Button
-            variant="link"
-            className="px-1"
-            onClick={() => setDraft((d) => ({ ...d, source: "template" }))}
-          >
-            Use the template
-          </Button>
-        </p>
-      </Card>
-    );
+    return <StepVendor draft={draft} setDraft={setDraft} next={next} back={back} busy={busy} />;
   const errors = result?.issues.filter((i) => i.level === "error") ?? [];
   const warnings = result?.issues.filter((i) => i.level === "warning") ?? [];
   const costHeads = [
