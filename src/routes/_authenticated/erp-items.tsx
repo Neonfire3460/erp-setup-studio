@@ -670,6 +670,40 @@ function FilterSelect({
   );
 }
 
+/** Every category level as its own chip, wrapping onto a second line when it's long. */
+function CategoryPath({ i }: { i: Item }) {
+  const levels = [
+    ["Family", i.family],
+    ["Group", i.group],
+    ["Category", i.category],
+    ["Sub category", i.subCategory],
+  ].filter((x): x is [string, string] => !!x[1]);
+  if (!levels.length && !i.midwich) return <p className="mt-1 text-[12px] italic">No category</p>;
+  return (
+    <div className="mt-1.5 flex flex-wrap items-center gap-1">
+      {levels.map(([label, v], n) => (
+        <span key={label} className="flex items-center gap-1">
+          {n > 0 && <span className="text-[11px] text-muted-foreground/60">›</span>}
+          <span
+            title={label}
+            className="rounded-md bg-[#EEF0FF] px-1.5 py-0.5 text-[11px] font-semibold text-[#3730A3]"
+          >
+            {v}
+          </span>
+        </span>
+      ))}
+      {i.midwich && (
+        <span
+          title="Midwich family"
+          className="ml-1 rounded-md bg-[#E6FAF9] px-1.5 py-0.5 text-[11px] font-semibold text-[#0F766E]"
+        >
+          Midwich: {i.midwich}
+        </span>
+      )}
+    </div>
+  );
+}
+
 const Shown = ({ on }: { on: number | null }) => (
   <span
     className={cn("text-[13px] font-bold", on === 1 ? "text-success" : "text-muted-foreground")}
@@ -724,17 +758,16 @@ function Row({
         />
       </td>
       <td className="whitespace-nowrap px-2 py-2.5 font-bold">{i.itemCode}</td>
-      <td className="max-w-[360px] px-2 py-2.5 text-muted-foreground">
-        <p className="truncate" title={i.description}>
+      <td
+        className={cn(
+          "px-2 py-2.5 text-muted-foreground",
+          cats ? "min-w-[380px]" : "max-w-[360px]",
+        )}
+      >
+        <p className={cats ? "" : "truncate"} title={i.description}>
           {i.description}
         </p>
-        {cats && (
-          <p className="truncate text-[12px]">
-            {[i.family, i.group, i.category, i.subCategory].filter(Boolean).join(" › ") ||
-              "No category"}
-            {i.midwich ? ` · Midwich: ${i.midwich}` : ""}
-          </p>
-        )}
+        {cats && <CategoryPath i={i} />}
       </td>
       {showEntity && (
         <td className="px-2 py-2.5">
