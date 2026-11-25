@@ -14,6 +14,42 @@ export type Database = {
   }
   public: {
     Tables: {
+      ai_description_examples: {
+        Row: {
+          ai_description: string
+          brand_activity: string
+          created_at: string
+          erp_description: string
+          final_description: string
+          id: number
+          item_code: string
+          user_id: string | null
+          vendor_description: string
+        }
+        Insert: {
+          ai_description?: string
+          brand_activity: string
+          created_at?: string
+          erp_description?: string
+          final_description: string
+          id?: number
+          item_code: string
+          user_id?: string | null
+          vendor_description?: string
+        }
+        Update: {
+          ai_description?: string
+          brand_activity?: string
+          created_at?: string
+          erp_description?: string
+          final_description?: string
+          id?: number
+          item_code?: string
+          user_id?: string | null
+          vendor_description?: string
+        }
+        Relationships: []
+      }
       app_settings: {
         Row: {
           key: string
@@ -916,9 +952,13 @@ export type Database = {
           cross_check: Json | null
           decided_at: string | null
           draft: Json | null
+          effective_from: string | null
           entities: Json
           id: string
+          incomplete: Json
+          kind: string
           missing_setup: Json
+          needed_by: string | null
           price_summary: Json | null
           proceeded_at: string | null
           region: string
@@ -949,9 +989,13 @@ export type Database = {
           cross_check?: Json | null
           decided_at?: string | null
           draft?: Json | null
+          effective_from?: string | null
           entities?: Json
           id?: string
+          incomplete?: Json
+          kind?: string
           missing_setup?: Json
+          needed_by?: string | null
           price_summary?: Json | null
           proceeded_at?: string | null
           region?: string
@@ -982,9 +1026,13 @@ export type Database = {
           cross_check?: Json | null
           decided_at?: string | null
           draft?: Json | null
+          effective_from?: string | null
           entities?: Json
           id?: string
+          incomplete?: Json
+          kind?: string
           missing_setup?: Json
+          needed_by?: string | null
           price_summary?: Json | null
           proceeded_at?: string | null
           region?: string
@@ -1011,6 +1059,53 @@ export type Database = {
           {
             foreignKeyName: "ir_tickets_resubmit_of_fkey"
             columns: ["resubmit_of"]
+            isOneToOne: false
+            referencedRelation: "ir_tickets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      item_status_changes: {
+        Row: {
+          brand_activity: string
+          created_at: string
+          decided_at: string | null
+          entity_code: string
+          id: string
+          inactive_from: number | null
+          inactive_to: number
+          item_code: string
+          state: string
+          ticket_id: string
+        }
+        Insert: {
+          brand_activity: string
+          created_at?: string
+          decided_at?: string | null
+          entity_code: string
+          id?: string
+          inactive_from?: number | null
+          inactive_to: number
+          item_code: string
+          state?: string
+          ticket_id: string
+        }
+        Update: {
+          brand_activity?: string
+          created_at?: string
+          decided_at?: string | null
+          entity_code?: string
+          id?: string
+          inactive_from?: number | null
+          inactive_to?: number
+          item_code?: string
+          state?: string
+          ticket_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "item_status_changes_ticket_id_fkey"
+            columns: ["ticket_id"]
             isOneToOne: false
             referencedRelation: "ir_tickets"
             referencedColumns: ["id"]
@@ -1699,9 +1794,13 @@ export type Database = {
           cross_check: Json | null
           decided_at: string | null
           draft: Json | null
+          effective_from: string | null
           entities: Json
           id: string
+          incomplete: Json
+          kind: string
           missing_setup: Json
+          needed_by: string | null
           price_summary: Json | null
           proceeded_at: string | null
           region: string
@@ -1750,9 +1849,13 @@ export type Database = {
           cross_check: Json | null
           decided_at: string | null
           draft: Json | null
+          effective_from: string | null
           entities: Json
           id: string
+          incomplete: Json
+          kind: string
           missing_setup: Json
+          needed_by: string | null
           price_summary: Json | null
           proceeded_at: string | null
           region: string
