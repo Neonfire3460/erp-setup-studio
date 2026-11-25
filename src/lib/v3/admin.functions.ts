@@ -129,3 +129,27 @@ export const pricingSelfTest = createServerFn({ method: "POST" })
     await core.requireRole(db, context.userId, core.STAFF);
     return runSelfTest();
   });
+
+/**
+ * Admin only: delete test data. Tickets (rows, items, history and edits go with them), approved prices
+ * from tickets, the email log and PDF history. Users, categories, ERP data and all settings stay.
+ */
+export const clearTestData = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(z.object({ confirm: z.literal("CLEAR") }))
+  .handler(async ({ context }) => {
+    const core = await import("@/server/v3/core.server");
+    const db = await core.adminDb();
+    await core.requireRole(db, context.userId, ["admin"]);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const del = async (table: string, f: (q: any) => any) => {
+      const r = await f((db as any).from(table).delete({ count: "exact" })); // eslint-disable-line @typescript-eslint/no-explicit-any
+      if (r.error) throw new Error(`${table}: ${r.error.message}`);
+      return (r.count as number | null) ?? 0;
+    };
+    const prices = await del("approved_prices", (q) => q.not("ticket_id", "is", null));
+    const emails = await del("email_log", (q) => q.gte("id", 0));
+    const pdfs = await del("pdf_history", (q) => q.not("id", "is", null));
+    const tickets = await del("ir_tickets", (q) => q.not("id", "is", null));
+    return { tickets, prices, emails, pdfs };
+  });

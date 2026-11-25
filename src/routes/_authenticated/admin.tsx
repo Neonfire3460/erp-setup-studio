@@ -15,6 +15,7 @@ import { CategoriesTab } from "@/components/v3/admin/CategoriesTab";
 import {
   AiTab,
   ChangeLogTab,
+  ClearTestDataCard,
   EmailsTab,
   ErpDataTab,
   RulesTab,
@@ -324,8 +325,9 @@ function AdminPage() {
         <TabsContent value="rules">
           <RulesTab />
         </TabsContent>
-        <TabsContent value="selftest">
+        <TabsContent value="selftest" className="space-y-4">
           <SelfTestTab />
+          {isAdmin && <ClearTestDataCard />}
         </TabsContent>
         <TabsContent value="log">
           <ChangeLogTab />

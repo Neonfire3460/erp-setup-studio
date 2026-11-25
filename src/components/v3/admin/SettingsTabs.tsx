@@ -9,7 +9,8 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, Label11, errText, fmtDate } from "@/components/v3/ui";
-import { pricingSelfTest, sendTestEmail } from "@/lib/v3/admin.functions";
+import { clearTestData, pricingSelfTest, sendTestEmail } from "@/lib/v3/admin.functions";
+import { TextDialog } from "@/components/v3/ui";
 import { looseDb, type Row } from "./ListEditor";
 
 type Settings = Record<string, unknown>;
@@ -518,6 +519,50 @@ export function ChangeLogTab() {
           </tbody>
         </table>
       </div>
+    </Card>
+  );
+}
+
+export function ClearTestDataCard() {
+  const [open, setOpen] = useState(false);
+  return (
+    <Card className="space-y-3 border-destructive/30">
+      <div className="flex items-center justify-between">
+        <Label11>Clear test data</Label11>
+        <Button size="sm" variant="destructive" onClick={() => setOpen(true)}>
+          Clear test data
+        </Button>
+      </div>
+      <p className="text-sm text-muted-foreground">
+        Deletes all tickets (with their rows, history and edits), approved prices from tickets, the
+        email log and PDF history. Users, categories, ERP data, brands, suppliers, pricing rules,
+        rates, the PDF order and all settings stay. This can't be undone.
+      </p>
+      <TextDialog
+        open={open}
+        title="Clear all test data?"
+        description="Type CLEAR to delete every ticket, approved price from tickets, email log entry and PDF history entry."
+        placeholder="CLEAR"
+        required
+        confirm="Delete"
+        destructive
+        onClose={() => setOpen(false)}
+        onConfirm={async (text: string) => {
+          if (text.trim() !== "CLEAR") {
+            toast.error("Type CLEAR to confirm");
+            return;
+          }
+          try {
+            const r = await clearTestData({ data: { confirm: "CLEAR" } });
+            toast.success(
+              `Deleted ${r.tickets} tickets, ${r.prices} approved prices, ${r.emails} emails, ${r.pdfs} PDF history entries`,
+            );
+            setOpen(false);
+          } catch (e) {
+            toast.error(errText(e));
+          }
+        }}
+      />
     </Card>
   );
 }
