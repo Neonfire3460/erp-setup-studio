@@ -21,6 +21,7 @@ import { codeKey } from "@/lib/nmk/util";
 import type { TicketDraft, TicketLine } from "@/lib/nmk/types";
 import { brandOf, type PriceCheckData, type StepProps } from "./shared";
 import { DescriptionPicker } from "./DescriptionPicker";
+import { MoveChart, PctBar, PriceSummary } from "./PriceCharts";
 
 type EntityCheck = PriceCheckData["result"]["perEntity"][number];
 
@@ -170,7 +171,6 @@ function EntityPanel({
   warnPct: number;
 }) {
   const t = e.tiles;
-  const maxBand = Math.max(1, ...e.bands.map((b) => b.count));
   const rows: GridRow[] = e.rows.map((x) => ({
     _id: x.itemCode,
     ...x,
@@ -184,38 +184,16 @@ function EntityPanel({
           {e.currencyWarning}
         </p>
       )}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 xl:grid-cols-7">
-        <Stat label="Compared" value={t.compared} />
-        <Stat label="Went up" value={t.up} />
-        <Stat label="Went down" value={t.down} />
-        <Stat label="Unchanged" value={t.unchanged} />
-        <Stat label="New codes" value={newCodes} />
-        <Stat label="Average" value={fmtPct(t.avgPct) || "-"} />
-        <Stat label="Median" value={fmtPct(t.medianPct) || "-"} />
-      </div>
-      <Card className="space-y-2">
-        <Label11>
-          How many items moved by how much (ERP {e.entityCode}, cost in {e.costCurrency})
-        </Label11>
-        {e.bands.map((b) => (
-          <div key={b.label} className="grid grid-cols-[120px_1fr_40px] items-center gap-3 text-sm">
-            <span className="text-muted-foreground">{b.label}</span>
-            <div className="h-5 rounded bg-muted">
-              <div
-                className={
-                  b.label.startsWith("−")
-                    ? "h-5 rounded bg-brand-cyan"
-                    : b.label === "0%"
-                      ? "h-5 rounded bg-muted-foreground/40"
-                      : "h-5 rounded bg-primary"
-                }
-                style={{ width: `${(b.count / maxBand) * 100}%` }}
-              />
-            </div>
-            <span className="text-right tabular-nums">{b.count}</span>
-          </div>
-        ))}
-      </Card>
+      <PriceSummary
+        tiles={t}
+        newCodes={newCodes}
+        toCheck={e.rows.filter((x) => x.check).length}
+        warnPct={warnPct}
+      />
+      <MoveChart
+        bands={e.bands}
+        title={`How many items moved by how much (ERP ${e.entityCode}, cost in ${e.costCurrency})`}
+      />
       <div className="grid gap-4 lg:grid-cols-2">
         <TopTable title="Top 10 increases" rows={e.topUp} />
         <TopTable title="Top 10 decreases" rows={e.topDown} />
@@ -251,6 +229,7 @@ function EntityPanel({
 }
 
 function TopTable({ title, rows }: { title: string; rows: EntityCheck["topUp"] }) {
+  const max = Math.max(1, ...rows.map((x) => Math.abs(x.pct ?? 0)));
   return (
     <Card className="space-y-2">
       <Label11>{title}</Label11>
@@ -273,7 +252,10 @@ function TopTable({ title, rows }: { title: string; rows: EntityCheck["topUp"] }
                 <TableCell
                   className={x.check ? "text-right font-semibold text-warning" : "text-right"}
                 >
-                  {fmtPct(x.pct)}
+                  <span className="inline-flex items-center gap-2">
+                    <PctBar pct={x.pct} max={max} />
+                    {fmtPct(x.pct)}
+                  </span>
                 </TableCell>
               </TableRow>
             ))}
