@@ -102,3 +102,5 @@
 .nmk-admin table { min-width: 720px; }
 .nmk-admin input:not([type="file"]) { min-width: 80px; }
 .nmk-page-heading { font-size: 26px; font-weight: 700; }
+.nmk-hero-glow { background: radial-gradient(520px 260px at 0% 130%, rgba(31,183,181,0.7) 0%, rgba(31,183,181,0) 65%), radial-gradient(560px 300px at 100% -30%, rgba(91,76,240,0.95) 0%, rgba(91,76,240,0) 65%); }
+.nmk-app-bg { background: radial-gradient(900px 420px at 85% -120px, rgba(91,76,240,0.10), transparent 70%), radial-gradient(700px 380px at 0% -80px, rgba(31,183,181,0.08), transparent 70%), var(--background); }

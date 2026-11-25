@@ -31,7 +31,7 @@ import {
 } from "@/components/ui/dialog";
 import { BrandCombo } from "@/components/v3/BrandCombo";
 import { DateField } from "@/components/v3/DateField";
-import { Empty, errText, fmtNum } from "@/components/v3/ui";
+import { Empty, PageHeader, errText, fmtNum } from "@/components/v3/ui";
 import { downloadBlob, headFor, XLSX_TYPE } from "@/lib/v3/page";
 import { wizardOptions } from "@/lib/v3/wizard.functions";
 import { itemsBrowse, submitStatusChange } from "@/lib/v3/status.functions";
@@ -210,57 +210,54 @@ function Page() {
   const statusWord = status === "all" ? "" : `${status} `;
   return (
     <div className="min-w-0 space-y-4 pb-28">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div className="min-w-0">
-          <p className="text-sm font-semibold text-muted-foreground">Home › View ERP data</p>
-          <h1 className="mt-1 text-3xl font-extrabold tracking-[-0.03em]">
-            {brand || "View ERP data"}{" "}
-            {items.length > 0 && (
-              <span className="text-base font-semibold text-muted-foreground">
-                {fmtNum(items.length)} items in {ents.length} entit{ents.length === 1 ? "y" : "ies"}
-              </span>
-            )}
-          </h1>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <BrandCombo
-            brands={brands}
-            value={brand}
-            onChange={(b) => {
-              if (changes.length && !window.confirm("Drop the changes you haven't sent?")) return;
-              setBrand(b);
-              setMoves(new Map());
-              setEntity("all");
-              setCat("all");
-              reset();
-            }}
-            className="h-11 w-64"
-          />
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              type="search"
-              aria-label="Search"
-              className="h-11 w-72 pl-9"
-              placeholder="Search code or description"
-              value={q}
-              onChange={(e) => {
-                setQ(e.target.value);
+      <PageHeader
+        title={brand ? `${brand} in the ERP` : "View ERP data"}
+        description={
+          items.length > 0
+            ? `${fmtNum(items.length)} items in ${ents.length} entit${ents.length === 1 ? "y" : "ies"}. Tick items to make them active or inactive, then send for review.`
+            : "Pick a brand to see its items exactly as they are in the ERP."
+        }
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
+            <BrandCombo
+              brands={brands}
+              value={brand}
+              onChange={(b) => {
+                if (changes.length && !window.confirm("Drop the changes you haven't sent?")) return;
+                setBrand(b);
+                setMoves(new Map());
+                setEntity("all");
+                setCat("all");
                 reset();
               }}
+              className="h-11 w-64 bg-card"
             />
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                type="search"
+                aria-label="Search"
+                className="h-11 w-72 pl-9"
+                placeholder="Search code or description"
+                value={q}
+                onChange={(e) => {
+                  setQ(e.target.value);
+                  reset();
+                }}
+              />
+            </div>
+            <Button
+              variant="outline"
+              className="h-11"
+              disabled={!shown.length}
+              onClick={() => void exportExcel()}
+            >
+              <Download />
+              Export to Excel
+            </Button>
           </div>
-          <Button
-            variant="outline"
-            className="h-11"
-            disabled={!shown.length}
-            onClick={() => void exportExcel()}
-          >
-            <Download />
-            Export to Excel
-          </Button>
-        </div>
-      </div>
+        }
+      />
 
       {!brand && (
         <Empty

@@ -201,7 +201,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             </SidebarMenu>
           </SidebarFooter>
         </Sidebar>
-        <div className="flex min-w-0 flex-1 flex-col">
+        <div className="nmk-app-bg flex min-w-0 flex-1 flex-col">
           <header className="flex h-16 items-center justify-between border-b bg-card px-4 lg:h-12 lg:border-0 lg:bg-transparent">
             <div className="flex items-center gap-2">
               <SidebarTrigger />
@@ -216,7 +216,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               My requests
             </Link>
           </header>
-          <main className="mx-auto w-full min-w-0 max-w-[1280px] flex-1 p-4 sm:p-8 lg:pt-2">
+          <main className="mx-auto w-full min-w-0 max-w-[1440px] flex-1 p-4 sm:px-8 sm:pb-10 lg:pt-2">
             {children}
           </main>
         </div>

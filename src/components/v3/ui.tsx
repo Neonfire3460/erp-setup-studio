@@ -26,12 +26,21 @@ export function PageHeader({
   actions?: ReactNode;
 }) {
   return (
-    <div className="flex flex-wrap items-start justify-between gap-4">
-      <div className="min-w-0">
-        <h1 className="nmk-page-heading">{title}</h1>
-        {description && <p className="mt-1 text-sm text-muted-foreground">{description}</p>}
+    <div className="relative overflow-hidden rounded-3xl bg-[#0B1460] px-6 py-7 text-white shadow-[0_18px_40px_rgba(11,20,96,0.18)] sm:px-8">
+      <div aria-hidden="true" className="nmk-hero-glow pointer-events-none absolute inset-0" />
+      <div className="relative flex flex-wrap items-end justify-between gap-4">
+        <div className="min-w-0">
+          <h1 className="text-[30px] font-extrabold leading-tight tracking-[-0.03em]">{title}</h1>
+          {description && (
+            <div className="mt-1.5 max-w-3xl text-sm text-[#D9DEFF] [&_*]:text-inherit">
+              {description}
+            </div>
+          )}
+        </div>
+        {actions && (
+          <div className="flex flex-wrap items-center gap-2 text-foreground">{actions}</div>
+        )}
       </div>
-      {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
     </div>
   );
 }
@@ -140,7 +149,16 @@ export function Empty({
 }
 
 export function Card({ children, className }: { children: ReactNode; className?: string }) {
-  return <div className={cn("rounded-[10px] border bg-card p-5", className)}>{children}</div>;
+  return (
+    <div
+      className={cn(
+        "rounded-2xl border bg-card p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_10px_28px_rgba(15,23,42,0.05)]",
+        className,
+      )}
+    >
+      {children}
+    </div>
+  );
 }
 
 export function AdminOnly() {
