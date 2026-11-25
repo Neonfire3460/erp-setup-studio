@@ -100,9 +100,14 @@ export function StepBrand({ draft, setDraft, opts, next, busy }: StepProps) {
           opts.entities.findIndex((x) => x.code === a.code) -
           opts.entities.findIndex((x) => x.code === b.code),
       );
+      // With one entity the vendor cost currency is its cost: no separate "different cost".
+      const fixed =
+        entities.length === 1
+          ? entities.map((x) => ({ ...x, ownCost: false, costCurrency: d.stdCurrency }))
+          : entities;
       return {
         ...d,
-        entities,
+        entities: fixed,
         region: entities.length
           ? regionOf(opts.entities.find((x) => x.code === entities[0]!.code)!.region)
           : regionOf(e.region),
@@ -233,7 +238,7 @@ export function StepBrand({ draft, setDraft, opts, next, busy }: StepProps) {
               </div>
             </div>
           ))}
-          {draft.entities.length > 0 && (
+          {draft.entities.length > 1 && (
             <div className="space-y-2 rounded-lg border bg-muted/30 p-4">
               <p className="text-sm">
                 One standard cost in <b>{draft.stdCurrency}</b> for every ticked entity. Only retail

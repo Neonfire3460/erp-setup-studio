@@ -120,7 +120,11 @@ export function Wizard({ ticketId }: { ticketId?: string | undefined }) {
             : "NMK Brand Portfolio"
         }
         actions={
-          <Button variant="ghost" size="sm" onClick={discard}>
+          <Button
+            variant="outline"
+            className="h-10 rounded-xl border-white/40 bg-white px-4 font-bold text-[#0B1460] shadow-md hover:bg-white/90"
+            onClick={discard}
+          >
             <Trash2 />
             {id ? "Delete draft" : "Cancel"}
           </Button>
