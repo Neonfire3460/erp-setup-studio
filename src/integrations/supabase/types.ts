@@ -1580,6 +1580,27 @@ export type Database = {
         }
         Relationships: []
       }
+      user_brand_access: {
+        Row: {
+          brand_activity: string
+          created_at: string
+          created_by: string | null
+          user_id: string
+        }
+        Insert: {
+          brand_activity: string
+          created_at?: string
+          created_by?: string | null
+          user_id: string
+        }
+        Update: {
+          brand_activity?: string
+          created_at?: string
+          created_by?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           id: string
