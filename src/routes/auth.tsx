@@ -54,12 +54,9 @@ function AuthPage() {
   }
 
   return (
-    <div
-  className="grid min-h-screen bg-cover bg-center lg:grid-cols-2"
-  style={{ backgroundImage: "url('/brand/auth-bg.jpg')" }}
->
+    <div className="grid min-h-screen bg-card lg:grid-cols-2">
       <div className="fixed inset-x-0 top-0 z-50 h-[3px] bg-nmk-gradient" />
-      <section className="hidden flex-col justify-end p-14 text-foreground lg:flex">
+      <section className="hidden flex-col justify-end bg-nmk-gradient p-14 text-primary-foreground lg:flex">
         <h1 className="text-4xl font-bold">NMK Unite</h1>
         <p className="mt-3 text-base text-primary-foreground/80">
           Vendor pricelists to ERP uploads
