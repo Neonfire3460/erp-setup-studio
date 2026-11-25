@@ -14,6 +14,7 @@ import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
 import { Route as AuthenticatedErpImportRouteImport } from './routes/_authenticated/erp-import'
+import { Route as AuthenticatedErpItemsRouteImport } from './routes/_authenticated/erp-items'
 import { Route as AuthenticatedHomeRouteImport } from './routes/_authenticated/home'
 import { Route as AuthenticatedPdfPricelistRouteImport } from './routes/_authenticated/pdf-pricelist'
 import { Route as AuthenticatedUploadRouteImport } from './routes/_authenticated/upload'
@@ -48,6 +49,11 @@ const AuthenticatedAdminRoute = AuthenticatedAdminRouteImport.update({
 const AuthenticatedErpImportRoute = AuthenticatedErpImportRouteImport.update({
   id: '/erp-import',
   path: '/erp-import',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedErpItemsRoute = AuthenticatedErpItemsRouteImport.update({
+  id: '/erp-items',
+  path: '/erp-items',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedHomeRoute = AuthenticatedHomeRouteImport.update({
@@ -118,6 +124,7 @@ export interface FileRoutesByFullPath {
   '/auth': typeof AuthRoute
   '/admin': typeof AuthenticatedAdminRoute
   '/erp-import': typeof AuthenticatedErpImportRoute
+  '/erp-items': typeof AuthenticatedErpItemsRoute
   '/home': typeof AuthenticatedHomeRoute
   '/pdf-pricelist': typeof AuthenticatedPdfPricelistRoute
   '/upload': typeof AuthenticatedUploadRoute
@@ -135,6 +142,7 @@ export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
   '/admin': typeof AuthenticatedAdminRoute
   '/erp-import': typeof AuthenticatedErpImportRoute
+  '/erp-items': typeof AuthenticatedErpItemsRoute
   '/home': typeof AuthenticatedHomeRoute
   '/pdf-pricelist': typeof AuthenticatedPdfPricelistRoute
   '/upload': typeof AuthenticatedUploadRoute
@@ -154,6 +162,7 @@ export interface FileRoutesById {
   '/auth': typeof AuthRoute
   '/_authenticated/admin': typeof AuthenticatedAdminRoute
   '/_authenticated/erp-import': typeof AuthenticatedErpImportRoute
+  '/_authenticated/erp-items': typeof AuthenticatedErpItemsRoute
   '/_authenticated/home': typeof AuthenticatedHomeRoute
   '/_authenticated/pdf-pricelist': typeof AuthenticatedPdfPricelistRoute
   '/_authenticated/upload': typeof AuthenticatedUploadRoute
@@ -173,6 +182,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/admin'
     | '/erp-import'
+    | '/erp-items'
     | '/home'
     | '/pdf-pricelist'
     | '/upload'
@@ -190,6 +200,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/admin'
     | '/erp-import'
+    | '/erp-items'
     | '/home'
     | '/pdf-pricelist'
     | '/upload'
@@ -208,6 +219,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/_authenticated/admin'
     | '/_authenticated/erp-import'
+    | '/_authenticated/erp-items'
     | '/_authenticated/home'
     | '/_authenticated/pdf-pricelist'
     | '/_authenticated/upload'
@@ -262,6 +274,13 @@ declare module '@tanstack/react-router' {
       path: '/erp-import'
       fullPath: '/erp-import'
       preLoaderRoute: typeof AuthenticatedErpImportRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/erp-items': {
+      id: '/_authenticated/erp-items'
+      path: '/erp-items'
+      fullPath: '/erp-items'
+      preLoaderRoute: typeof AuthenticatedErpItemsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/home': {
@@ -347,6 +366,7 @@ declare module '@tanstack/react-router' {
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedAdminRoute: typeof AuthenticatedAdminRoute
   AuthenticatedErpImportRoute: typeof AuthenticatedErpImportRoute
+  AuthenticatedErpItemsRoute: typeof AuthenticatedErpItemsRoute
   AuthenticatedHomeRoute: typeof AuthenticatedHomeRoute
   AuthenticatedPdfPricelistRoute: typeof AuthenticatedPdfPricelistRoute
   AuthenticatedUploadRoute: typeof AuthenticatedUploadRoute
@@ -363,6 +383,7 @@ interface AuthenticatedRouteRouteChildren {
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAdminRoute: AuthenticatedAdminRoute,
   AuthenticatedErpImportRoute: AuthenticatedErpImportRoute,
+  AuthenticatedErpItemsRoute: AuthenticatedErpItemsRoute,
   AuthenticatedHomeRoute: AuthenticatedHomeRoute,
   AuthenticatedPdfPricelistRoute: AuthenticatedPdfPricelistRoute,
   AuthenticatedUploadRoute: AuthenticatedUploadRoute,

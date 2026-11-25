@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, CheckCircle2, Loader2 } from "lucide-react";
+import { AlertTriangle, CalendarDays, CheckCircle2, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,11 +14,15 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
+  DialogFooter,
 } from "@/components/ui/dialog";
+import { DateField } from "@/components/v3/DateField";
 import { Card, Label11, errText } from "@/components/v3/ui";
+import { REVIEW_DAYS, earliestNeededBy, fmtDay, isoDate, parseIso, today } from "@/lib/nmk/dates";
 import { submitTicket, supplierInfo } from "@/lib/v3/wizard.functions";
 import { checkDraft, ticketLines, type MissingField } from "@/lib/nmk/ticket";
 import type { SupplierAnswer } from "@/lib/nmk/types";
+import { cn } from "@/lib/utils";
 import { brandOf, type PriceCheckData, type StepProps } from "./shared";
 
 export function StepSuppliers({ draft, setDraft, opts, next, back, busy }: StepProps) {
@@ -182,8 +186,11 @@ export function StepCheck({
         <Card className="space-y-3 border-destructive/30">
           <p className="flex items-center gap-2 font-semibold text-destructive">
             <AlertTriangle className="size-5" />
-            We can't submit this yet: {missing.length} thing{missing.length === 1 ? " is" : "s are"}{" "}
-            missing
+            {missing.length} thing{missing.length === 1 ? " is" : "s are"} missing
+          </p>
+          <p className="text-sm text-muted-foreground">
+            Fill them in for the fastest review. You can also continue: the reviewer then fills them
+            in.
           </p>
           <MissingList missing={missing} goTo={goTo} />
         </Card>
@@ -213,8 +220,12 @@ export function StepCheck({
         <Button variant="outline" onClick={back}>
           Back
         </Button>
-        <Button disabled={missing.length > 0 || busy} onClick={() => next()}>
-          Continue
+        <Button
+          disabled={busy}
+          variant={missing.length ? "outline" : "default"}
+          onClick={() => next()}
+        >
+          {missing.length ? "Continue anyway" : "Continue"}
         </Button>
       </div>
     </div>
@@ -239,16 +250,32 @@ export function StepComplete({
   const name = (code: string) => opts.entities.find((e) => e.code === code)?.name ?? code;
   const changed = draft.suppliers.filter((s) => s.answer === "different");
 
-  async function complete() {
-    if (missing.length) {
+  const [dateErr, setDateErr] = useState(false);
+  const earliest = earliestNeededBy();
+  const neededOk = !!draft.neededBy && draft.neededBy >= isoDate(earliest);
+
+  async function complete(anyway = false) {
+    if (!neededOk) {
+      setDateErr(true);
+      document.getElementById("needed-by")?.scrollIntoView({ block: "center", behavior: "smooth" });
+      return;
+    }
+    if (missing.length && !anyway) {
       setPopup(missing);
       return;
     }
+    setPopup(null);
     setSending(true);
     try {
       await save();
       const r = await submitTicket({
-        data: { id: ticketId, specialInstructions: draft.specialInstructions ?? "" },
+        data: {
+          id: ticketId,
+          specialInstructions: draft.specialInstructions ?? "",
+          neededBy: draft.neededBy!,
+          effectiveFrom: draft.effectiveFrom ?? null,
+          allowIncomplete: anyway,
+        },
       });
       await qc.invalidateQueries({ queryKey: ["my-tickets"] });
       toast.success(`Submitted as ${r.ticketNo}`);
@@ -262,11 +289,41 @@ export function StepComplete({
 
   return (
     <div className="space-y-5">
+      <Card
+        className={cn(
+          "space-y-4 border-primary/30",
+          dateErr && !neededOk && "border-destructive ring-2 ring-destructive/30",
+        )}
+      >
+        <div id="needed-by">
+          <Label11>When do you need this?</Label11>
+          <p className="mt-1 text-sm text-muted-foreground">
+            The detailed review takes at least {REVIEW_DAYS} days to go from review to added to the
+            ERP, so the earliest date you can pick is <b>{fmtDay(isoDate(earliest))}</b>.
+          </p>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <DateField
+            label="Needed by (required)"
+            value={draft.neededBy}
+            min={earliest}
+            onChange={(v) => setDraft((d) => ({ ...d, neededBy: v }))}
+            error={dateErr && !neededOk ? "Pick the date you need this by" : null}
+          />
+          <DateField
+            label="New prices in effect from (optional)"
+            value={draft.effectiveFrom}
+            min={today()}
+            onChange={(v) => setDraft((d) => ({ ...d, effectiveFrom: v }))}
+            clearable
+          />
+        </div>
+      </Card>
       <Card className="space-y-2">
         <Label11>Anything the admin should know?</Label11>
         <Textarea
           rows={4}
-          placeholder='Optional, for example "Use new prices from 1 Dec"'
+          placeholder='Optional, for example "Customer quote waiting on these prices"'
           value={draft.specialInstructions ?? ""}
           onChange={(e) => setDraft((d) => ({ ...d, specialInstructions: e.target.value }))}
         />
@@ -296,7 +353,7 @@ export function StepComplete({
         <Button variant="outline" onClick={back} disabled={sending}>
           Back
         </Button>
-        <Button onClick={complete} disabled={sending}>
+        <Button onClick={() => void complete()} disabled={sending}>
           {sending ? "Submitting..." : "Complete"}
         </Button>
       </div>
@@ -304,10 +361,12 @@ export function StepComplete({
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>
-              We can't submit this yet: {popup?.length} thing{popup?.length === 1 ? " is" : "s are"}{" "}
-              missing
+              {popup?.length} thing{popup?.length === 1 ? " is" : "s are"} still missing
             </DialogTitle>
-            <DialogDescription>Fill these in, then press Complete again.</DialogDescription>
+            <DialogDescription>
+              Fill them in now for the fastest review, or submit anyway and the reviewer fills them
+              in.
+            </DialogDescription>
           </DialogHeader>
           <MissingList
             missing={popup ?? []}
@@ -316,6 +375,14 @@ export function StepComplete({
               goTo(n);
             }}
           />
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setPopup(null)}>
+              Fill them in
+            </Button>
+            <Button onClick={() => void complete(true)} disabled={sending}>
+              Submit anyway
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

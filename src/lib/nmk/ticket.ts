@@ -251,6 +251,8 @@ export function buildTicketRows(draft: TicketDraft, ctx: TicketContext) {
         ? n?.altDescription || line.altDescription || line.description
         : m!.altDescription || m!.description;
       const web = isNew ? (n?.showOnWeb ? 1 : 0) : (m!.web ?? 0);
+      // B2B = show prices on the website. New items: the user's answer (old drafts without it follow Website).
+      const b2b = isNew ? (n?.showOnWeb ? ((n.showPrices ?? true) ? 1 : 0) : 0) : web;
       const maxDiscount = isNew
         ? (rule?.maxDiscount ?? ctx.brandDefaults.maxDiscount)
         : (m!.maxDiscount ?? rule?.maxDiscount ?? ctx.brandDefaults.maxDiscount);
@@ -281,7 +283,7 @@ export function buildTicketRows(draft: TicketDraft, ctx: TicketContext) {
         "Measurement Unit": unitCode,
         Inactive: isNew ? (n?.inactive ?? 0) : (m!.inactive ?? 0),
         Webactive: web,
-        B2B: web,
+        B2B: b2b,
       };
       // Current retail: this entity's own ERP data, else the latest approved ticket for this entity.
       const currentRetail = mine?.retail ?? ctx.approvedRetail?.[te.code]?.[k] ?? null;
@@ -409,7 +411,14 @@ export function checkDraft(
         step: 4,
         ...at,
         field: "showOnWeb",
-        message: `${l.itemCode}: Show on website is empty`,
+        message: `${l.itemCode}: Website (show or hide) is empty`,
+      });
+    else if (n.showOnWeb && (n.showPrices === null || n.showPrices === undefined))
+      out.push({
+        step: 4,
+        ...at,
+        field: "showPrices",
+        message: `${l.itemCode}: B2B prices (show or hide) is empty`,
       });
     if (n?.unitCode && lists?.units && !lists.units.includes(n.unitCode))
       out.push({
@@ -488,7 +497,7 @@ export function applyEdit(
   } else {
     r.erp[column] = value;
     if (column === "Alternate Description") r.erp["Det. Description"] = value;
-    if (column === "Webactive") r.erp["B2B"] = value;
+    if (column === "Webactive" && Number(value) === 0) r.erp["B2B"] = 0; // hidden product: no prices shown
   }
   const retail = r.erp["Retail Price"];
   r.retailChangePct =

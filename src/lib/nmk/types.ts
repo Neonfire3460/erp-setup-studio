@@ -41,7 +41,8 @@ export interface NewItemFields {
   unitCode: string; // "pc"
   subActivity: string;
   inactive: 0 | 1; // ERP status: Active = 0, Inactive = 1
-  showOnWeb: boolean | null; // Yes = Webactive 1 + B2B 1
+  showOnWeb: boolean | null; // Website: show the product (Webactive 1)
+  showPrices?: boolean | null; // B2B: show its prices on the website (B2B 1). Off when the product is hidden
 }
 
 export interface TicketLine extends Line {
@@ -49,6 +50,8 @@ export interface TicketLine extends Line {
   include: boolean; // new codes: the user decides whether to register each one
   useVendorDescription: boolean; // existing codes: gap 8 (ERP description kept by default)
   erpDescription?: string;
+  vendorDescription?: string; // the pricelist wording, kept when the description is replaced (AI or typed)
+  aiDescription?: string; // what the AI suggested, for learning
   newItem?: NewItemFields;
 }
 
@@ -71,6 +74,8 @@ export interface TicketDraft {
   lines: TicketLine[];
   suppliers: SupplierAnswer[];
   specialInstructions?: string;
+  neededBy?: string | undefined; // YYYY-MM-DD, required at Complete
+  effectiveFrom?: string | undefined; // YYYY-MM-DD, optional
 }
 
 export type TicketStatus =

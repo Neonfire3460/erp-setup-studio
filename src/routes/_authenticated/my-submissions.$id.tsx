@@ -14,6 +14,7 @@ import {
   fmtNum,
 } from "@/components/v3/ui";
 import { Button } from "@/components/ui/button";
+import { DeadlineStrip } from "@/components/v3/Deadline";
 import {
   Table,
   TableBody,
@@ -73,7 +74,9 @@ function TicketView() {
     answer: string;
     newName?: string;
   }[];
-  const at = FLOW.indexOf(t.status as TicketStatus);
+  const isStatus = t.kind === "status_change";
+  const flow = isStatus ? FLOW.filter((x) => x !== "awaiting_approval") : FLOW;
+  const at = flow.indexOf(t.status as TicketStatus);
 
   async function resubmit() {
     try {
@@ -97,7 +100,7 @@ function TicketView() {
         actions={
           <>
             <TicketStatusBadge status={t.status} />
-            {t.status === "rejected" && (
+            {t.status === "rejected" && !isStatus && (
               <Button onClick={resubmit}>
                 <RotateCcw />
                 Resubmit
@@ -118,7 +121,7 @@ function TicketView() {
       )}
       {at >= 0 && (
         <div className="flex flex-wrap items-center gap-2 text-xs">
-          {FLOW.map((s, i) => (
+          {flow.map((s, i) => (
             <span
               key={s}
               className={
@@ -132,9 +135,10 @@ function TicketView() {
           ))}
         </div>
       )}
+      <DeadlineStrip neededBy={t.needed_by} effectiveFrom={t.effective_from} />
       <div className="grid gap-4 lg:grid-cols-2">
         <Card className="space-y-2 text-sm">
-          <Label11>Details</Label11>
+          <Label11>{isStatus ? "Active/Inactive request" : "Details"}</Label11>
           <p>
             <span className="text-muted-foreground">Entities:</span>{" "}
             {ents.map((e) => `${e.code} (cost in ${e.costCurrency})`).join(", ")}
@@ -174,8 +178,8 @@ function TicketView() {
               <TableRow>
                 <TableHead>Item Code</TableHead>
                 <TableHead>Description</TableHead>
-                <TableHead>New or existing</TableHead>
-                <TableHead className="text-right">Cost</TableHead>
+                <TableHead>{isStatus ? "Change" : "New or existing"}</TableHead>
+                {!isStatus && <TableHead className="text-right">Cost</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -186,10 +190,14 @@ function TicketView() {
                     {i.description}
                     {i.use_vendor_description ? " (vendor's description)" : ""}
                   </TableCell>
-                  <TableCell>{i.is_new ? "New" : "Existing"}</TableCell>
-                  <TableCell className="text-right tabular-nums">
-                    {i.price_on_request ? "Price on request" : fmtNum(i.cost)}
+                  <TableCell>
+                    {isStatus ? i.alt_description : i.is_new ? "New" : "Existing"}
                   </TableCell>
+                  {!isStatus && (
+                    <TableCell className="text-right tabular-nums">
+                      {i.price_on_request ? "Price on request" : fmtNum(i.cost)}
+                    </TableCell>
+                  )}
                 </TableRow>
               ))}
             </TableBody>

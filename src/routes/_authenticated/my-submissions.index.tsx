@@ -14,6 +14,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
+import { fmtDay } from "@/lib/nmk/dates";
 
 export const Route = createFileRoute("/_authenticated/my-submissions/")({
   head: () => headFor("My Submissions", "Your item registration tickets and their status."),
@@ -85,13 +86,22 @@ function MySubmissions() {
                     <TableCell>{t.brand_activity}</TableCell>
                     <TableCell>{ents}</TableCell>
                     <TableCell className="text-right tabular-nums">
-                      {c ? `${c.existing} + ${c.new} new` : ""}
+                      {t.kind === "status_change"
+                        ? `${(c as { changes?: number } | undefined)?.changes ?? 0} Active/Inactive`
+                        : c
+                          ? `${c.existing} + ${c.new} new`
+                          : ""}
                     </TableCell>
                     <TableCell>
                       <TicketStatusBadge status={t.status} />
                     </TableCell>
                     <TableCell className="whitespace-nowrap">
                       {t.submitted_at ? fmtDate(t.submitted_at) : `Step ${t.step} of 7`}
+                      {t.needed_by && (
+                        <span className="block text-xs text-muted-foreground">
+                          needed by {fmtDay(t.needed_by)}
+                        </span>
+                      )}
                     </TableCell>
                     <TableCell
                       className={cn(

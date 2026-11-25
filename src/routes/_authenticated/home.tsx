@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { Boxes, Calculator, ShieldCheck, Library, Bot } from "lucide-react";
+import { Boxes, Calculator, ShieldCheck, Library, Bot, Database } from "lucide-react";
 import { toast } from "sonner";
 import { headFor } from "@/lib/v3/page";
 import { PageHeader, Tile } from "@/components/v3/ui";
@@ -23,6 +23,13 @@ function HomePage() {
           icon={Boxes}
           live
           onClick={() => navigate({ to: "/item-registration" })}
+        />
+        <Tile
+          title="ERP Items"
+          subtitle="See a brand's items, make them active or inactive"
+          icon={Database}
+          live
+          onClick={() => navigate({ to: "/erp-items" })}
         />
         <Tile title="Price Calculator Tool" icon={Calculator} live={false} onClick={soon} />
         <Tile title="Compliance" icon={ShieldCheck} live={false} onClick={soon} />

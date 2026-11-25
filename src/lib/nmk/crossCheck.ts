@@ -97,6 +97,7 @@ export function crossCheck(
     let ok = true;
     for (const [col, field, kind] of PAIRS) {
       if (skip.has(col.toLowerCase()) || skip.has(String(field).toLowerCase())) continue;
+      if (!(col in r.erp)) continue; // Active/Inactive tickets only carry Item Code + Inactive
       if (!same(r.erp[col], item[field], kind)) {
         ok = false;
         mismatches.push({

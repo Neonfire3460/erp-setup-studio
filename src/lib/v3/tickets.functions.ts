@@ -36,7 +36,7 @@ export const staffQueue = createServerFn({ method: "GET" })
       await db
         .from("ir_tickets")
         .select(
-          "id,ticket_no,brand_activity,entities,counts,status,user_id,reviewer_id,approver_id,submitted_at,proceeded_at,decided_at,uploaded_at,uploads,cross_check,missing_setup,special_instructions,updated_at",
+          "id,ticket_no,kind,needed_by,effective_from,incomplete,brand_activity,entities,counts,status,user_id,reviewer_id,approver_id,submitted_at,proceeded_at,decided_at,uploaded_at,uploads,cross_check,missing_setup,special_instructions,updated_at",
         )
         .in("status", [...QUEUES[data.view]])
         .order("submitted_at", { ascending: true })
@@ -539,6 +539,7 @@ export const ticketErpRows = createServerFn({ method: "GET" })
     return {
       ticketNo: t.ticket_no ?? "",
       brand: t.brand_activity,
+      kind: t.kind,
       sheets: codes.map((c) => ({
         entityCode: c,
         name: entities.find((e) => e.code === c)?.name ?? c,

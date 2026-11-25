@@ -11,7 +11,7 @@ export const Route = createFileRoute("/_authenticated/review/")({
     if (!context.isReviewer) throw redirect({ to: "/home" });
   },
   head: () =>
-    headFor("Review", "Tickets In review or On hold, oldest first. Open one to check and edit it."),
+    headFor("Review", "Tickets grouped by when they are needed. Open one to check and edit it."),
   component: Queue,
 });
 
@@ -26,7 +26,7 @@ function Queue() {
     <div className="space-y-6">
       <PageHeader
         title="Review"
-        description="Tickets In review or On hold, oldest first. Open one to check and edit it."
+        description="Grouped by when the brand manager needs them: overdue first, then this week and next week."
       />
       {!isLoading && !data?.length ? (
         <Empty icon={Inbox} text="Nothing is waiting here." />

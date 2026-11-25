@@ -42,6 +42,28 @@ async function download(id: string, only?: string) {
   const [XLSX, d] = await Promise.all([import("xlsx"), ticketErpRows({ data: { id } })]);
   const sheets = d.sheets.filter((s) => !only || s.entityCode === only);
   for (const s of sheets) {
+    if (d.kind === "status_change") {
+      // Active/Inactive ticket: two columns only. Inactive 0 = active, 1 = inactive.
+      const ws = XLSX.utils.json_to_sheet(
+        s.rows.map((r) => ({
+          "Item Code": String(r["Item Code"] ?? ""),
+          Inactive: Number(r["Inactive"] ?? 0),
+        })),
+        { header: ["Item Code", "Inactive"] },
+      );
+      ws["!cols"] = [{ wch: 28 }, { wch: 10 }];
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, s.entityCode);
+      const buf = XLSX.write(wb, { type: "array", bookType: "xlsx" }) as ArrayBuffer;
+      downloadBlob(
+        new Blob([buf], { type: XLSX_TYPE }),
+        `${d.ticketNo} ${d.brand} ${s.entityCode} Active-Inactive.xlsx`.replace(
+          /[\\/:*?"<>|]+/g,
+          "-",
+        ),
+      );
+      continue;
+    }
     const buf = buildErpWorkbook(XLSX as never, [{ name: s.name, rows: s.rows }]) as ArrayBuffer;
     downloadBlob(new Blob([buf], { type: XLSX_TYPE }), erpFileName(d.ticketNo, s.name, d.brand));
   }
@@ -115,6 +137,11 @@ function Page() {
               <div>
                 <p className="text-lg font-semibold">
                   {t.ticket_no} · {t.brand_activity} <TicketStatusBadge status={t.status} />
+                  {t.kind === "status_change" && (
+                    <span className="ml-2 rounded-full bg-violet-100 px-2 py-0.5 text-xs font-semibold text-violet-800 dark:bg-violet-950 dark:text-violet-200">
+                      Active/Inactive
+                    </span>
+                  )}
                 </p>
                 <p className="text-sm text-muted-foreground">
                   From {t.owner}
@@ -155,7 +182,11 @@ function Page() {
                         <span className="font-normal text-muted-foreground">({e.code})</span>
                       </p>
                       <p className="text-muted-foreground">
-                        {c ? `${c.existing} existing + ${c.new} new items` : ""}
+                        {t.kind === "status_change"
+                          ? `${(c as { changes?: number } | undefined)?.changes ?? 0} Active/Inactive changes (Item Code + Inactive)`
+                          : c
+                            ? `${c.existing} existing + ${c.new} new items`
+                            : ""}
                         {up ? ` · uploaded ${fmtDate(up.at)}` : ""}
                         {pe ? ` · ERP check: ${pe.matched} of ${pe.total} match` : ""}
                       </p>

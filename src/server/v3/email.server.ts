@@ -134,6 +134,17 @@ export function ticketFacts(t: TicketRecord, owner: string) {
       "Price changes",
       `${ps.up} up, ${ps.down} down, ${ps.unchanged} unchanged${ps.avgPct === null ? "" : `, average ${ps.avgPct > 0 ? "+" : ""}${ps.avgPct.toFixed(1)}%`}`,
     ]);
+  const day = (d: string) =>
+    new Date(`${d}T00:00:00`).toLocaleDateString("en-GB", {
+      weekday: "short",
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    });
+  if (t.needed_by) facts.push(["Needed by", day(t.needed_by)]);
+  if (t.effective_from) facts.push(["Prices in effect from", day(t.effective_from)]);
+  if (Array.isArray(t.incomplete) && t.incomplete.length)
+    facts.push(["Missing details", `${t.incomplete.length} (the reviewer fills them in)`]);
   if (t.special_instructions) facts.push(["Special instructions", t.special_instructions]);
   return facts;
 }

@@ -46,7 +46,7 @@ export const listMyTickets = createServerFn({ method: "GET" })
       await context.supabase
         .from("ir_tickets")
         .select(
-          "id,ticket_no,brand_activity,entities,counts,status,step,submitted_at,created_at,updated_at,special_instructions,reject_reason,resubmit_of,decided_at,uploaded_at,verified_at",
+          "id,ticket_no,kind,needed_by,brand_activity,entities,counts,status,step,submitted_at,created_at,updated_at,special_instructions,reject_reason,resubmit_of,decided_at,uploaded_at,verified_at",
         )
         .eq("user_id", context.userId)
         .order("created_at", { ascending: false })
@@ -231,10 +231,19 @@ export const supplierInfo = createServerFn({ method: "POST" })
 export const submitTicket = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator(
-    z.object({ id: z.string().uuid(), specialInstructions: z.string().max(4000).default("") }),
+    z.object({
+      id: z.string().uuid(),
+      specialInstructions: z.string().max(4000).default(""),
+      neededBy: z.string().max(10),
+      effectiveFrom: z.string().max(10).nullable().default(null),
+      allowIncomplete: z.boolean().default(false),
+    }),
   )
   .handler(async ({ data, context }) => {
     const core = await import("@/server/v3/core.server");
+    const { checkNeededBy } = await import("@/lib/nmk/dates");
+    const dateProblem = checkNeededBy(data.neededBy, data.effectiveFrom);
+    if (dateProblem) throw new Error(dateProblem);
     const { buildTicketRows, checkDraft, ticketLines } = await import("@/lib/nmk/ticket");
     const { runPriceCheck } = await import("@/lib/nmk/priceCheck");
     const { codeKey, isDemoCode } = await import("@/lib/nmk/util");
@@ -272,7 +281,7 @@ export const submitTicket = createServerFn({ method: "POST" })
       units: ctx.units.map((u) => u.code),
       ...(brand?.sub_activities.length ? { subActivities: brand.sub_activities } : {}),
     });
-    if (missing.length)
+    if (missing.length && !data.allowIncomplete)
       throw new Error(
         `We can't submit this yet: ${missing.length} thing${missing.length === 1 ? " is" : "s are"} missing. ${missing
           .slice(0, 3)
@@ -343,13 +352,48 @@ export const submitTicket = createServerFn({ method: "POST" })
         missing_setup: built.missingSetup,
       },
     });
+    core.ok(
+      await db
+        .from("ir_tickets")
+        .update({
+          kind: "registration",
+          needed_by: data.neededBy,
+          effective_from: data.effectiveFrom || null,
+          incomplete: core.json(missing.map((m) => m.message)),
+        })
+        .eq("id", t.id)
+        .select("id"),
+    );
     await db
       .from("brands")
       .update({ last_currency: d.stdCurrency })
       .ilike("brand_activity", core.likeExact(d.brand));
+    // AI learning: what the AI suggested and what the person kept (never blocks the submit).
+    const learned = d.lines
+      .filter((l) => l.aiDescription)
+      .map((l) => ({
+        brand_activity: d.brand,
+        item_code: l.itemCode,
+        vendor_description: l.vendorDescription ?? l.description,
+        erp_description: l.erpDescription ?? "",
+        ai_description: l.aiDescription ?? "",
+        final_description:
+          l.isNew || l.useVendorDescription ? l.description : (l.erpDescription ?? l.description),
+        user_id: context.userId,
+      }))
+      .filter((x) => x.final_description);
+    if (learned.length) await db.from("ai_description_examples").insert(learned.slice(0, 500));
 
     const who = (await core.people(db, [context.userId])).get(context.userId);
-    const facts = mail.ticketFacts(done, who?.name ?? "");
+    const facts = mail.ticketFacts(
+      {
+        ...done,
+        needed_by: data.neededBy,
+        effective_from: data.effectiveFrom || null,
+        incomplete: core.json(missing.map((m) => m.message)),
+      },
+      who?.name ?? "",
+    );
     const site = core.siteOrigin();
     const link = `${site}/review/${t.id}`;
     await mail.sendEmail(db, settings, {
@@ -386,7 +430,7 @@ export const myTicket = createServerFn({ method: "GET" })
       await db
         .from("ir_tickets")
         .select(
-          "id,user_id,ticket_no,brand_activity,region,std_currency,entities,suppliers,counts,price_summary,status,special_instructions,reject_reason,submitted_at,created_at,decided_at,uploaded_at,verified_at,resubmit_of",
+          "id,user_id,ticket_no,kind,needed_by,effective_from,brand_activity,region,std_currency,entities,suppliers,counts,price_summary,status,special_instructions,reject_reason,submitted_at,created_at,decided_at,uploaded_at,verified_at,resubmit_of",
         )
         .eq("id", data.id)
         .single(),

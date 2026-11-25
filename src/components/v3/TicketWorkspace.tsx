@@ -5,6 +5,8 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   AlertTriangle,
   ArrowLeft,
+  CalendarCheck,
+  CalendarClock,
   Check,
   Loader2,
   MessageSquareWarning,
@@ -40,6 +42,9 @@ import {
 } from "@/lib/v3/tickets.functions";
 import { APPROVAL_COLUMNS, REVIEW_COLUMNS, gridRow } from "@/lib/nmk/ticket";
 import { cn } from "@/lib/utils";
+import { StatusWorkspace } from "./StatusWorkspace";
+import { WEEK_LABEL, WEEK_ORDER, dueText, fmtDay, weekGroup } from "@/lib/nmk/dates";
+import { DeadlineStrip, GROUP_STYLE } from "./Deadline";
 
 type Data = Awaited<ReturnType<typeof staffTicket>>;
 type Row = Data["rows"][number];
@@ -118,6 +123,7 @@ export function TicketWorkspace({ id, mode }: { id: string; mode: "review" | "ap
         Loading the ticket...
       </div>
     );
+  if (data.ticket.kind === "status_change") return <StatusWorkspace id={id} />;
   const t = data.ticket;
   const canEdit = mode === "review" && ["in_review", "on_hold", "submitted"].includes(t.status);
   const canDecide = mode === "approval" && t.status === "awaiting_approval";
@@ -339,6 +345,21 @@ export function TicketWorkspace({ id, mode }: { id: string; mode: "review" | "ap
         }
       />
 
+      <DeadlineStrip neededBy={t.needed_by} effectiveFrom={t.effective_from} />
+      {mode === "review" && Array.isArray(t.incomplete) && t.incomplete.length > 0 && (
+        <Card className="space-y-2 border-warning/40 bg-warning-soft">
+          <p className="flex items-center gap-2 font-semibold text-warning">
+            <AlertTriangle className="size-4" />
+            Submitted with {t.incomplete.length} blank detail{t.incomplete.length === 1 ? "" : "s"}:
+            fill them in the grid below
+          </p>
+          <ul className="max-h-40 list-disc overflow-auto pl-5 text-sm">
+            {(t.incomplete as string[]).map((m, i) => (
+              <li key={i}>{m}</li>
+            ))}
+          </ul>
+        </Card>
+      )}
       {t.special_instructions && (
         <Card className="border-primary/30 bg-accent">
           <Label11>Special instructions</Label11>
@@ -522,87 +543,167 @@ const fmtValue = (v: unknown) =>
       ? fmtNum(v, 4)
       : String(v);
 
+export type QueueRow = {
+  id: string;
+  ticket_no: string | null;
+  kind?: string;
+  needed_by?: string | null;
+  effective_from?: string | null;
+  incomplete?: unknown;
+  brand_activity: string;
+  entities: unknown;
+  counts: unknown;
+  status: string;
+  owner: string;
+  reviewer: string;
+  submitted_at: string | null;
+  proceeded_at: string | null;
+  decided_at: string | null;
+  missing_setup: unknown;
+};
+
+/** Admin queues: grouped by when the brand manager needs the ticket (this week, next week...). */
 export function QueueTable({
   rows,
   onOpen,
   mode,
 }: {
-  rows: {
-    id: string;
-    ticket_no: string | null;
-    brand_activity: string;
-    entities: unknown;
-    counts: unknown;
-    status: string;
-    owner: string;
-    reviewer: string;
-    submitted_at: string | null;
-    proceeded_at: string | null;
-    decided_at: string | null;
-    missing_setup: unknown;
-  }[];
-  onOpen: (id: string) => void;
+  rows: QueueRow[];
+  onOpen: (id: string, kind: string) => void;
   mode: "review" | "approval";
 }) {
+  const groups = WEEK_ORDER.map((g) => ({
+    g,
+    rows: rows
+      .filter((r) => weekGroup(r.needed_by) === g)
+      .sort(
+        (a, b) =>
+          (a.needed_by ?? "9999").localeCompare(b.needed_by ?? "9999") ||
+          (a.submitted_at ?? "").localeCompare(b.submitted_at ?? ""),
+      ),
+  })).filter((x) => x.rows.length);
   return (
-    <div className="overflow-auto rounded-[10px] border bg-card">
-      <table className="w-full text-sm">
-        <thead className="bg-muted text-left text-[11px] font-semibold uppercase tracking-[0.04em] text-muted-foreground">
-          <tr>
-            {[
-              "Ticket",
-              "Brand",
-              "From",
-              "Entities",
-              "Items",
-              "Status",
-              mode === "review" ? "Waiting since" : "Reviewed by",
-              "",
-            ].map((h) => (
-              <th key={h} className="p-3">
-                {h}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((t) => {
-            const c = Object.values(
-              (t.counts ?? {}) as Record<string, { existing: number; new: number }>,
-            )[0];
-            const missing = ((t.missing_setup ?? []) as unknown[]).length;
-            return (
-              <tr
-                key={t.id}
-                onClick={() => onOpen(t.id)}
-                className="cursor-pointer border-t hover:bg-muted/50"
-              >
-                <td className="p-3 font-semibold">{t.ticket_no}</td>
-                <td className="p-3">{t.brand_activity}</td>
-                <td className="p-3">{t.owner}</td>
-                <td className="p-3">
-                  {((t.entities ?? []) as { code: string }[]).map((e) => e.code).join(", ")}
-                </td>
-                <td className="p-3 tabular-nums">{c ? `${c.existing} + ${c.new} new` : ""}</td>
-                <td className="p-3">
-                  <TicketStatusBadge status={t.status} />
-                  {missing > 0 && mode === "review" && (
-                    <span className="ml-2 text-xs font-semibold text-destructive">
-                      {missing} missing setup
-                    </span>
-                  )}
-                </td>
-                <td className="p-3 whitespace-nowrap">
-                  {mode === "review"
-                    ? fmtDate(t.submitted_at)
-                    : `${t.reviewer}, ${fmtDate(t.proceeded_at)}`}
-                </td>
-                <td className={cn("p-3 text-right text-primary")}>Open</td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+    <div className="space-y-6">
+      <div className="flex flex-wrap gap-2">
+        {groups.map(({ g, rows: r }) => (
+          <a
+            key={g}
+            href={`#q-${g}`}
+            className={cn("rounded-full px-3 py-1 text-sm font-semibold shadow-sm", GROUP_STYLE[g])}
+          >
+            {WEEK_LABEL[g]}: {r.length}
+          </a>
+        ))}
+      </div>
+      {groups.map(({ g, rows: list }) => (
+        <section key={g} id={`q-${g}`} className="space-y-2">
+          <h2 className="flex items-center gap-2 text-sm font-bold uppercase tracking-[0.06em] text-muted-foreground">
+            <span className={cn("size-2.5 rounded-full", GROUP_STYLE[g])} />
+            {WEEK_LABEL[g]} ({list.length})
+          </h2>
+          <div className="overflow-auto rounded-[10px] border bg-card">
+            <table className="w-full text-sm">
+              <thead className="bg-muted text-left text-[11px] font-semibold uppercase tracking-[0.04em] text-muted-foreground">
+                <tr>
+                  {[
+                    "Needed by",
+                    "Ticket",
+                    "Type",
+                    "Brand",
+                    "From",
+                    "Entities",
+                    "Items",
+                    "Status",
+                    mode === "review" ? "Waiting since" : "Reviewed by",
+                    "",
+                  ].map((h) => (
+                    <th key={h} className="p-3">
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {list.map((t) => {
+                  const c = Object.values(
+                    (t.counts ?? {}) as Record<
+                      string,
+                      { existing: number; new: number; changes?: number }
+                    >,
+                  )[0];
+                  const missing = ((t.missing_setup ?? []) as unknown[]).length;
+                  const blanks = Array.isArray(t.incomplete) ? t.incomplete.length : 0;
+                  const status = t.kind === "status_change";
+                  return (
+                    <tr
+                      key={t.id}
+                      onClick={() => onOpen(t.id, t.kind ?? "registration")}
+                      className="cursor-pointer border-t hover:bg-muted/50"
+                    >
+                      <td className="whitespace-nowrap p-3">
+                        <p className="font-semibold">{t.needed_by ? fmtDay(t.needed_by) : "-"}</p>
+                        <p
+                          className={cn(
+                            "text-xs",
+                            g === "overdue" ? "text-destructive" : "text-muted-foreground",
+                          )}
+                        >
+                          {dueText(t.needed_by)}
+                          {t.effective_from ? ` · in effect ${fmtDay(t.effective_from)}` : ""}
+                        </p>
+                      </td>
+                      <td className="p-3 font-semibold">{t.ticket_no}</td>
+                      <td className="p-3">
+                        <span
+                          className={cn(
+                            "whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-semibold",
+                            status
+                              ? "bg-violet-100 text-violet-800 dark:bg-violet-950 dark:text-violet-200"
+                              : "bg-accent text-primary",
+                          )}
+                        >
+                          {status ? "Active/Inactive" : "Item registration"}
+                        </span>
+                      </td>
+                      <td className="p-3">{t.brand_activity}</td>
+                      <td className="p-3">{t.owner}</td>
+                      <td className="p-3">
+                        {((t.entities ?? []) as { code: string }[]).map((e) => e.code).join(", ")}
+                      </td>
+                      <td className="p-3 tabular-nums">
+                        {status
+                          ? `${Object.values((t.counts ?? {}) as Record<string, { changes?: number }>).reduce((a, x) => a + (x.changes ?? 0), 0)} changes`
+                          : c
+                            ? `${c.existing} + ${c.new} new`
+                            : ""}
+                      </td>
+                      <td className="p-3">
+                        <TicketStatusBadge status={t.status} />
+                        {missing > 0 && mode === "review" && (
+                          <span className="ml-2 text-xs font-semibold text-destructive">
+                            {missing} missing setup
+                          </span>
+                        )}
+                        {blanks > 0 && mode === "review" && (
+                          <span className="ml-2 text-xs font-semibold text-warning">
+                            {blanks} blank{blanks === 1 ? "" : "s"} to fill
+                          </span>
+                        )}
+                      </td>
+                      <td className="whitespace-nowrap p-3">
+                        {mode === "review"
+                          ? fmtDate(t.submitted_at)
+                          : `${t.reviewer}, ${fmtDate(t.proceeded_at)}`}
+                      </td>
+                      <td className={cn("p-3 text-right text-primary")}>Open</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      ))}
     </div>
   );
 }

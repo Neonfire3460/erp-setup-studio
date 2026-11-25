@@ -20,6 +20,7 @@ import { priceCheck } from "@/lib/v3/wizard.functions";
 import { codeKey } from "@/lib/nmk/util";
 import type { TicketDraft, TicketLine } from "@/lib/nmk/types";
 import { brandOf, type PriceCheckData, type StepProps } from "./shared";
+import { DescriptionPicker } from "./DescriptionPicker";
 
 type EntityCheck = PriceCheckData["result"]["perEntity"][number];
 
@@ -47,19 +48,6 @@ export function StepPriceCheck(
       </div>
     );
   const r = pc.result;
-  const vendorPick = new Set(
-    draft.lines.filter((l) => l.useVendorDescription).map((l) => codeKey(l.itemCode)),
-  );
-  const setVendor = (codes: string[], on: boolean) => {
-    const set = new Set(codes.map(codeKey));
-    setDraft((d) => ({
-      ...d,
-      lines: d.lines.map((l) =>
-        set.has(codeKey(l.itemCode)) ? { ...l, useVendorDescription: on } : l,
-      ),
-    }));
-  };
-
   function proceed() {
     const brand = brandOf(opts, draft.brand);
     const newSet = new Set(r.newCodes.map((n) => n.lineNo));
@@ -89,6 +77,7 @@ export function StepPriceCheck(
               subActivity: brand?.sub_activities.length === 1 ? brand.sub_activities[0]! : "",
               inactive: 0,
               showOnWeb: null,
+              showPrices: null,
             },
           };
     });
@@ -140,55 +129,7 @@ export function StepPriceCheck(
       )}
 
       {r.descriptionDiffs.length > 0 && (
-        <Card className="space-y-3">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div>
-              <Label11>Descriptions that differ from the ERP ({r.descriptionDiffs.length})</Label11>
-              <p className="mt-1 text-sm text-muted-foreground">
-                The ERP description is kept unless you tick "Use vendor's".
-              </p>
-            </div>
-            <label className="flex items-center gap-2 text-sm">
-              <Checkbox
-                checked={r.descriptionDiffs.every((x) => vendorPick.has(codeKey(x.itemCode)))}
-                onCheckedChange={(v) =>
-                  setVendor(
-                    r.descriptionDiffs.map((x) => x.itemCode),
-                    v === true,
-                  )
-                }
-              />
-              Use vendor's for all
-            </label>
-          </div>
-          <div className="max-h-96 overflow-auto rounded-lg border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Item Code</TableHead>
-                  <TableHead>ERP description</TableHead>
-                  <TableHead>Vendor description</TableHead>
-                  <TableHead className="w-32">Use vendor's</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {r.descriptionDiffs.map((x) => (
-                  <TableRow key={x.itemCode}>
-                    <TableCell className="font-semibold">{x.itemCode}</TableCell>
-                    <TableCell className="text-sm">{x.erpDescription}</TableCell>
-                    <TableCell className="text-sm">{x.vendorDescription}</TableCell>
-                    <TableCell>
-                      <Checkbox
-                        checked={vendorPick.has(codeKey(x.itemCode))}
-                        onCheckedChange={(v) => setVendor([x.itemCode], v === true)}
-                      />
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        </Card>
+        <DescriptionPicker diffs={r.descriptionDiffs} draft={draft} setDraft={setDraft} />
       )}
 
       {r.missing.length > 0 && (

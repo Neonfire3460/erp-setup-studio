@@ -24,6 +24,8 @@ export const lineSchema = z.object({
   include: z.boolean().default(true),
   useVendorDescription: z.boolean().default(false),
   erpDescription: z.string().optional(),
+  vendorDescription: z.string().max(2000).optional(),
+  aiDescription: z.string().max(2000).optional(),
   newItem: z
     .object({
       altCode: z.string().default(""),
@@ -35,6 +37,7 @@ export const lineSchema = z.object({
       subActivity: z.string().default(""),
       inactive: z.union([z.literal(0), z.literal(1)]),
       showOnWeb: z.boolean().nullable(),
+      showPrices: z.boolean().nullable().optional(),
     })
     .optional(),
 });
@@ -63,6 +66,8 @@ export const draftSchema = z.object({
     )
     .default([]),
   specialInstructions: z.string().max(4000).optional(),
+  neededBy: z.string().max(10).optional(),
+  effectiveFrom: z.string().max(10).optional(),
 });
 
 export const idSchema = z.object({ id: z.string().uuid() });

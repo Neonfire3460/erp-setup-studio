@@ -88,11 +88,13 @@ export function runPriceCheck(input: {
       continue;
     }
     existing.push(e.itemCode);
-    if (l.description && e.description && !sameText(l.description, e.description))
+    // The vendor's own wording, even after the user picked an AI or typed description.
+    const vendor = (l as { vendorDescription?: string }).vendorDescription ?? l.description;
+    if (vendor && e.description && !sameText(vendor, e.description))
       descriptionDiffs.push({
         itemCode: e.itemCode,
         erpDescription: e.description,
-        vendorDescription: l.description,
+        vendorDescription: vendor,
       });
   }
   const missing = master
