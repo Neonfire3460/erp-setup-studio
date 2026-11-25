@@ -44,3 +44,5 @@ use the editor.
 - Never commit ERP exports, vendor pricelists or other confidential data to the repo.
 - Tickets have a kind: registration (IR-) or status_change (ST-, Active/Inactive, reviewer only, no approver). needed_by is required (earliest today + 3, src/lib/nmk/dates.ts); admin queues group by week. Pending/approved item_status_changes overlay the ERP state on the ERP Items page.
 - AI (Lovable gateway via src/server/v3/ai.server.ts callTool) only maps columns, suggests new-item details and descriptions; never codes or prices. What people keep is saved in ai_description_examples and fed back per brand.
+- Large brands (2,000+ codes): render long lists one page at a time (src/components/v3/Pager.tsx, View ERP data at 50/100/200 rows) or virtualize (DataGrid); never render every row. Keep page visuals CSS/SVG only, and load xlsx with `await import("xlsx")`.
+- Names shown to people: Register items (NMK brands, PDF pricelist), View ERP data (/erp-items), My requests (/my-submissions), Send for review. The reviewer can edit the brand's pricing_rules above the ticket grid (BrandRulesPanel, same rows as Admin settings) and then Recalculate.
