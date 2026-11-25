@@ -11,10 +11,11 @@ import { z } from "zod";
 
 const text = (n: number) => z.string().max(n).default("");
 
-async function brandContext(brand: string, region: "ME" | "SEA") {
+async function brandContext(brand: string, region: "ME" | "SEA", userId: string) {
   const core = await import("@/server/v3/core.server");
   const { descriptionLimit } = await import("@/server/v3/ai.server");
   const db = await core.adminDb();
+  await core.requireBrand(db, userId, brand);
   const entities = await core.loadEntities(db);
   const master = core.masterOf(entities, region);
   const [erp, examples] = await Promise.all([
@@ -69,9 +70,13 @@ export const aiSuggestNewItems = createServerFn({ method: "POST" })
         .max(60),
     }),
   )
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
     const { callTool } = await import("@/server/v3/ai.server");
-    const { core, db, erp, limit, learned } = await brandContext(data.brand, data.region);
+    const { core, db, erp, limit, learned } = await brandContext(
+      data.brand,
+      data.region,
+      context.userId,
+    );
     const cats = await core.loadCategories(db);
     const catKeys = new Set(cats.map((c) => c.subCategoryCode));
     // The brand's existing items closest to the new codes (shared code start), as examples.
@@ -204,9 +209,9 @@ export const aiDescribe = createServerFn({ method: "POST" })
         .max(80),
     }),
   )
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
     const { callTool } = await import("@/server/v3/ai.server");
-    const { erp, limit, learned } = await brandContext(data.brand, data.region);
+    const { erp, limit, learned } = await brandContext(data.brand, data.region, context.userId);
     const style = erp
       .filter((i) => i.description)
       .slice(0, 25)

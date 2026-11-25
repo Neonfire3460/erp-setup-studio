@@ -184,7 +184,16 @@ function Page() {
         </label>
       </Card>
 
-      {!brand && <Empty icon={Tag} text="Pick a brand to see its items in the ERP." />}
+      {!brand && (
+        <Empty
+          icon={Tag}
+          text={
+            opts.data?.brandScoped && !brands.length
+              ? "No brands on your account yet. Ask an admin to add yours in Admin settings → Users."
+              : "Pick a brand to see its items in the ERP."
+          }
+        />
+      )}
       {data.isLoading && (
         <p className="flex items-center gap-2 text-sm text-muted-foreground">
           <Loader2 className="size-4 animate-spin" />

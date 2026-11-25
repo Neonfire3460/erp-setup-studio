@@ -35,7 +35,17 @@ export const wizardOptions = createServerFn({ method: "GET" })
         .then(ok),
       db.from("midwich_families").select("code,name").order("code").then(ok),
     ]);
-    return { brands, entities, currencies, units, categories, midwich };
+    const core = await import("@/server/v3/core.server");
+    const scope = await core.brandScope(await core.adminDb(), context.userId);
+    return {
+      brands: scope ? brands.filter((b) => scope.has(b.brand_activity.toUpperCase())) : brands,
+      brandScoped: !!scope,
+      entities,
+      currencies,
+      units,
+      categories,
+      midwich,
+    };
   });
 
 export const listMyTickets = createServerFn({ method: "GET" })
@@ -140,10 +150,11 @@ export const deleteDraft = createServerFn({ method: "POST" })
 export const templatePrefill = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .inputValidator(z.object({ brand: z.string().min(1), region: z.enum(["ME", "SEA"]) }))
-  .handler(async ({ data }) => {
-    const { adminDb, loadEntities, masterOf, loadBrandErp } =
+  .handler(async ({ data, context }) => {
+    const { adminDb, loadEntities, masterOf, loadBrandErp, requireBrand } =
       await import("@/server/v3/core.server");
     const db = await adminDb();
+    await requireBrand(db, context.userId, data.brand);
     const master = masterOf(await loadEntities(db), data.region);
     const items = await loadBrandErp(db, master, data.brand);
     return items
@@ -160,12 +171,13 @@ export const templatePrefill = createServerFn({ method: "GET" })
 export const priceCheck = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator(z.object({ draft: draftSchema }))
-  .handler(async ({ data }) => {
-    const { adminDb, loadEntities, masterOf, loadBrandErp, loadSettings } =
+  .handler(async ({ data, context }) => {
+    const { adminDb, loadEntities, masterOf, loadBrandErp, loadSettings, requireBrand } =
       await import("@/server/v3/core.server");
     const { runPriceCheck } = await import("@/lib/nmk/priceCheck");
     const db = await adminDb();
     const d = data.draft as unknown as TicketDraft;
+    await requireBrand(db, context.userId, d.brand);
     const entities = await loadEntities(db);
     const master = masterOf(entities, d.region);
     const others = d.entities.map((e) => e.code).filter((c) => c !== master);
@@ -254,6 +266,7 @@ export const submitTicket = createServerFn({ method: "POST" })
     if (t.status !== "draft") throw new Error("This ticket was already submitted");
     const d0 = core.asDraft(t.draft);
     if (!d0) throw new Error("The draft is empty");
+    await core.requireBrand(db, context.userId, d0.brand);
     const d: TicketDraft = {
       ...d0,
       specialInstructions: data.specialInstructions,

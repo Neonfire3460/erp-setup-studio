@@ -23,12 +23,16 @@ export const pdfOptions = createServerFn({ method: "GET" })
         .limit(20)
         .then(ok),
     ]);
+    const core = await import("@/server/v3/core.server");
+    const scope = await core.brandScope(await core.adminDb(), context.userId);
     return {
-      brands: brands.map((b) => ({
-        brand: b.brand_activity,
-        entities: b.entity_codes,
-        hasLogo: b.has_logo,
-      })),
+      brands: brands
+        .filter((b) => !scope || scope.has(b.brand_activity.toUpperCase()))
+        .map((b) => ({
+          brand: b.brand_activity,
+          entities: b.entity_codes,
+          hasLogo: b.has_logo,
+        })),
       entities,
       history,
     };
@@ -43,12 +47,13 @@ export const pdfItems = createServerFn({ method: "POST" })
       includeInactive: z.boolean().default(false),
     }),
   )
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
     const core = await import("@/server/v3/core.server");
     const { placeItems } = await import("@/lib/nmk/pdfOrder");
     const { pricelistChecks, pricelistTitle } = await import("@/lib/nmk/pricelistPdf");
     const { codeKey, isDemoCode } = await import("@/lib/nmk/util");
     const db = await core.adminDb();
+    await core.requireBrand(db, context.userId, data.brand);
     const [entities, settings] = await Promise.all([core.loadEntities(db), core.loadSettings(db)]);
     const e = entities.find((x) => x.code === data.entityCode);
     if (!e) throw new Error("Unknown entity");

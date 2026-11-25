@@ -81,6 +81,39 @@ export async function requireRole(db: DB, userId: string, need: Role[]) {
 }
 export const STAFF: Role[] = ["admin", "reviewer", "approver"];
 
+// ---------- Brand access (v5) ----------
+
+/**
+ * The brands a person works on. null = every brand (admin, reviewer, approver). A user (brand manager) gets
+ * only the brands an admin gave them in Admin settings → Users, so they only see costs of their own brands.
+ */
+export async function brandScope(db: DB, userId: string): Promise<Set<string> | null> {
+  const roles = await rolesOf(db, userId);
+  if (roles.some((r) => STAFF.includes(r))) return null;
+  const r = await (db as unknown as LooseDb)
+    .from("user_brand_access")
+    .select("brand_activity")
+    .eq("user_id", userId);
+  if (r.error) {
+    // Table not created yet (migration v5 not applied): keep today's behaviour until it is.
+    if (r.error.code === "42P01" || /does not exist|schema cache/i.test(r.error.message))
+      return null;
+    throw new Error(r.error.message);
+  }
+  return new Set(
+    (r.data ?? []).map((x: { brand_activity: string }) => x.brand_activity.toUpperCase()),
+  );
+}
+
+export async function requireBrand(db: DB, userId: string, brand: string) {
+  const scope = await brandScope(db, userId);
+  if (scope && !scope.has(brand.trim().toUpperCase()))
+    throw new Error(`You don't have access to ${brand}. Ask an admin to add it to your account.`);
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type LooseDb = { from: (t: string) => any };
+
 // ---------- Settings ----------
 
 export async function loadSettings(db: DB) {

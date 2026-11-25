@@ -153,7 +153,11 @@ export function StepBrand({ draft, setDraft, opts, next, busy }: StepProps) {
             <Command>
               <CommandInput placeholder="Search brands" />
               <CommandList>
-                <CommandEmpty>No brand found. An admin adds brands in Admin settings.</CommandEmpty>
+                <CommandEmpty>
+                  {opts.brandScoped
+                    ? "No brand found. You only see the brands on your account: ask an admin to add one."
+                    : "No brand found. An admin adds brands in Admin settings."}
+                </CommandEmpty>
                 <CommandGroup>
                   {opts.brands.map((b) => (
                     <CommandItem

@@ -53,9 +53,10 @@ async function overlay(
 export const itemsBrowse = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator(z.object({ brand: z.string().min(1).max(200) }))
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
     const core = await import("@/server/v3/core.server");
     const db = await core.adminDb();
+    await core.requireBrand(db, context.userId, data.brand);
     const entities = (await core.loadEntities(db)).filter((e) => e.active);
     const [lists, changes] = await Promise.all([
       Promise.all(entities.map((e) => core.loadBrandErp(db, e.code, data.brand))),
@@ -127,6 +128,7 @@ export const submitStatusChange = createServerFn({ method: "POST" })
     const problem = checkNeededBy(data.neededBy, data.effectiveFrom);
     if (problem) throw new Error(problem);
     const db = await core.adminDb();
+    await core.requireBrand(db, context.userId, data.brand);
     const entities = await core.loadEntities(db);
     const codes = [...new Set(data.changes.map((c) => c.entityCode))];
     const [lists, current] = await Promise.all([

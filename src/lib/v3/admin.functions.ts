@@ -153,3 +153,54 @@ export const clearTestData = createServerFn({ method: "POST" })
     const tickets = await del("ir_tickets", (q) => q.not("id", "is", null));
     return { tickets, prices, emails, pdfs };
   });
+
+/** Brand access (v5): every account's brands, for Admin settings → Users. Admin only. */
+export const listBrandAccess = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const core = await import("@/server/v3/core.server");
+    const db = await core.adminDb();
+    await core.requireRole(db, context.userId, ["admin"]);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const r = await (db as any)
+      .from("user_brand_access")
+      .select("user_id,brand_activity")
+      .limit(20000);
+    if (r.error) return { ready: false, rows: [] as { user_id: string; brand_activity: string }[] };
+    return { ready: true, rows: (r.data ?? []) as { user_id: string; brand_activity: string }[] };
+  });
+
+/** Replaces one account's brands. A user (brand manager) only sees, prices and registers these brands. */
+export const setBrandAccess = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(
+    z.object({ userId: z.string().uuid(), brands: z.array(z.string().min(1).max(200)).max(2000) }),
+  )
+  .handler(async ({ data, context }) => {
+    const core = await import("@/server/v3/core.server");
+    const db = await core.adminDb();
+    await core.requireRole(db, context.userId, ["admin"]);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const t = (db as any).from("user_brand_access");
+    const del = await t.delete().eq("user_id", data.userId);
+    if (del.error) throw new Error(del.error.message);
+    const brands = [...new Set(data.brands.map((b) => b.trim()))];
+    if (brands.length) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const ins = await (db as any).from("user_brand_access").insert(
+        brands.map((b) => ({
+          user_id: data.userId,
+          brand_activity: b,
+          created_by: context.userId,
+        })),
+      );
+      if (ins.error) throw new Error(ins.error.message);
+    }
+    await db.from("change_log").insert({
+      table_name: "user_brand_access",
+      action: "UPDATE",
+      new_row: core.json({ user_id: data.userId, brands }),
+      changed_by: context.userId,
+    } as never);
+    return { count: brands.length };
+  });

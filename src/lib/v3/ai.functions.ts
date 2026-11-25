@@ -113,9 +113,10 @@ export const aiReadLayout = createServerFn({ method: "POST" })
       table: tableSchema,
     }),
   )
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
     const core = await import("@/server/v3/core.server");
     const db = await core.adminDb();
+    await core.requireBrand(db, context.userId, data.brand);
     const saved = await db
       .from("brand_ai_profiles")
       .select("id,profile,times_used")
@@ -254,6 +255,7 @@ export const saveAiLayout = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const core = await import("@/server/v3/core.server");
     const db = await core.adminDb();
+    await core.requireBrand(db, context.userId, data.brand);
     const r = await db.from("brand_ai_profiles").upsert(
       {
         brand_activity: data.brand,
