@@ -43,6 +43,7 @@ import {
 import { APPROVAL_COLUMNS, REVIEW_COLUMNS, gridRow } from "@/lib/nmk/ticket";
 import { cn } from "@/lib/utils";
 import { StatusWorkspace } from "./StatusWorkspace";
+import { BrandRulesPanel } from "./BrandRulesPanel";
 import { WEEK_LABEL, WEEK_ORDER, dueText, fmtDay, weekGroup } from "@/lib/nmk/dates";
 import { DeadlineStrip, GROUP_STYLE } from "./Deadline";
 
@@ -108,6 +109,7 @@ export function TicketWorkspace({ id, mode }: { id: string; mode: "review" | "ap
   });
   const [dialog, setDialog] = useState<"reject" | "hold" | "approve" | null>(null);
   const [working, setWorking] = useState(false);
+  const [rulesChanged, setRulesChanged] = useState(false);
   const [rows, setRows] = useState<Row[] | null>(null);
   const all = rows ?? data?.rows ?? [];
   const edited = useMemo(
@@ -298,12 +300,22 @@ export function TicketWorkspace({ id, mode }: { id: string; mode: "review" | "ap
             <TicketStatusBadge status={t.status} />
             {canEdit && (
               <Button
-                variant="outline"
+                variant={rulesChanged ? "default" : "outline"}
                 disabled={working}
-                onClick={() => act(() => recalcTicket({ data: { id } }), "Recalculated", false)}
+                onClick={() =>
+                  act(
+                    async () => {
+                      const r = await recalcTicket({ data: { id } });
+                      setRulesChanged(false);
+                      return r;
+                    },
+                    "Recalculated",
+                    false,
+                  )
+                }
               >
                 <RefreshCw />
-                Recalculate
+                {rulesChanged ? "Recalculate with the new rule" : "Recalculate"}
               </Button>
             )}
             {(canEdit || canDecide) && (
@@ -415,6 +427,14 @@ export function TicketWorkspace({ id, mode }: { id: string; mode: "review" | "ap
               </p>
             ))}
         </Card>
+      )}
+
+      {canEdit && t.brand_activity && (
+        <BrandRulesPanel
+          brand={t.brand_activity}
+          entities={ents.map((e) => ({ code: e.code, name: ename(e.code)?.name ?? e.code }))}
+          onSaved={() => setRulesChanged(true)}
+        />
       )}
 
       <Tabs defaultValue={ents[0]?.code ?? ""}>
