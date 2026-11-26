@@ -19,7 +19,7 @@ import { Card, Label11, Stat, errText, fmtNum, fmtPct } from "@/components/v3/ui
 import { priceCheck } from "@/lib/v3/wizard.functions";
 import { codeKey } from "@/lib/nmk/util";
 import type { TicketDraft, TicketLine } from "@/lib/nmk/types";
-import { brandOf, type PriceCheckData, type StepProps } from "./shared";
+import { brandOf, subActivityKit, type PriceCheckData, type StepProps } from "./shared";
 import { DescriptionPicker } from "./DescriptionPicker";
 import { MoveChart, PctBar, PriceSummary } from "./PriceCharts";
 
@@ -51,6 +51,7 @@ export function StepPriceCheck(
   const r = pc.result;
   function proceed() {
     const brand = brandOf(opts, draft.brand);
+    const subKit = subActivityKit(brand, pc);
     const newSet = new Set(r.newCodes.map((n) => n.lineNo));
     const erpDesc = new Map(r.descriptionDiffs.map((x) => [codeKey(x.itemCode), x.erpDescription]));
     const lines: TicketLine[] = draft.lines.map((l) => {
@@ -75,7 +76,14 @@ export function StepPriceCheck(
               groupCode: "",
               subCategoryCode: "",
               unitCode: brand?.default_unit ?? "",
-              subActivity: brand?.sub_activities.length === 1 ? brand.sub_activities[0]! : "",
+              // One Sub Activity: that one. Several: the recommendation when it is sure (Neat vs Neat Pulse).
+              subActivity:
+                subKit.options.length === 1
+                  ? subKit.options[0]!
+                  : (() => {
+                      const s = subKit.suggest(l.itemCode, l.description);
+                      return s && s.confidence >= 0.6 ? s.value : "";
+                    })(),
               inactive: 0,
               showOnWeb: null,
               showPrices: null,

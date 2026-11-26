@@ -31,7 +31,14 @@ import { aiSuggestNewItems } from "@/lib/v3/aiItems.functions";
 import type { NewItemFields, TicketLine } from "@/lib/nmk/types";
 import { cn } from "@/lib/utils";
 import { Pager } from "@/components/v3/Pager";
-import { brandOf, toCategoryRows, type PriceCheckData, type StepProps } from "./shared";
+import type { SubActivitySuggestion } from "@/lib/nmk/subActivity";
+import {
+  subActivityKit,
+  brandOf,
+  toCategoryRows,
+  type PriceCheckData,
+  type StepProps,
+} from "./shared";
 
 const sel = "h-8 w-full min-w-0 rounded-md border border-input bg-background px-2 text-[13px]";
 const AI_RING = "ring-2 ring-violet-400/70 bg-violet-50 dark:bg-violet-950/30";
@@ -110,7 +117,14 @@ export function StepNewItems({
 }: StepProps & { pc: PriceCheckData | null }) {
   const cats = useMemo(() => toCategoryRows(opts), [opts]);
   const brand = brandOf(opts, draft.brand);
-  const subs = brand?.sub_activities ?? [];
+  const subKit = useMemo(() => subActivityKit(brand, pc), [brand, pc]);
+  // Admin list + the ERP's Sub Activities, plus any value already chosen (kept when resuming a draft).
+  const subs = useMemo(() => {
+    const extra = draft.lines
+      .map((l) => l.newItem?.subActivity ?? "")
+      .filter((v) => v && !subKit.options.includes(v));
+    return [...subKit.options, ...new Set(extra)];
+  }, [subKit, draft.lines]);
   const lines = draft.lines.filter((l) => l.isNew);
   const [picked, setPicked] = useState<Set<number>>(new Set());
   const [bulk, setBulk] = useState<Fields>({});
@@ -167,27 +181,29 @@ export function StepNewItems({
   const suggest = (l: TicketLine): Fields | null => {
     const s = suggestCategory(l.itemCode, known);
     const c = s ? categoryBySub(cats, s.subCategoryCode) : null;
-    if (!c) return null;
-    const sub = known.find((k) => k.itemCode === s!.likeItem)?.subActivity;
+    const sa = subs.length > 1 ? subKit.suggest(l.itemCode, l.description) : null;
+    const sub =
+      sa && sa.confidence >= 0.6 && !l.newItem?.subActivity ? { subActivity: sa.value } : {};
+    if (!c) return Object.keys(sub).length ? sub : null;
     return {
-      familyCode: c.familyCode,
-      groupCode: c.groupCode,
-      subCategoryCode: c.subCategoryCode,
-      ...(sub && subs.includes(sub) ? { subActivity: sub } : {}),
+      ...(l.newItem?.subCategoryCode
+        ? {}
+        : { familyCode: c.familyCode, groupCode: c.groupCode, subCategoryCode: c.subCategoryCode }),
+      ...sub,
     };
   };
   const suggestAll = () => {
     let n = 0;
     for (const l of lines) {
       const s = suggest(l);
-      if (s && !l.newItem?.subCategoryCode) {
+      if (s && Object.keys(s).length) {
         update([l.lineNo], s);
         n++;
       }
     }
     toast(
       n
-        ? `Filled the category for ${n} item${n === 1 ? "" : "s"} from similar codes`
+        ? `Filled the category or Sub Activity of ${n} item${n === 1 ? "" : "s"} from similar codes`
         : "No similar codes found for the empty rows",
     );
   };
@@ -661,6 +677,11 @@ export function StepNewItems({
                           <option key={s}>{s}</option>
                         ))}
                       </select>
+                      <SubHint
+                        s={subs.length > 1 ? subKit.suggest(l.itemCode, l.description) : null}
+                        value={n.subActivity}
+                        apply={(v) => update([l.lineNo], { subActivity: v })}
+                      />
                     </td>
                     <td className="border-b p-2">
                       <select
@@ -895,5 +916,37 @@ function CategoryPicker({
       {b}
       {c}
     </>
+  );
+}
+
+/** Under the Sub Activity box: what the brand's similar items use, and why. One click applies it. */
+function SubHint({
+  s,
+  value,
+  apply,
+}: {
+  s: SubActivitySuggestion | null;
+  value: string;
+  apply: (v: string) => void;
+}) {
+  if (!s) return null;
+  const why = [s.like ? `like ${s.like}` : "", s.words.length ? `"${s.words.join('", "')}"` : ""]
+    .filter(Boolean)
+    .join(" · ");
+  if (value === s.value)
+    return (
+      <p className="mt-1 max-w-40 truncate text-[11px] text-muted-foreground" title={why}>
+        ✓ Matches {why || "similar items"}
+      </p>
+    );
+  return (
+    <button
+      type="button"
+      onClick={() => apply(s.value)}
+      title={why}
+      className="mt-1 block max-w-40 truncate rounded bg-violet-50 px-1.5 py-0.5 text-left text-[11px] font-semibold text-violet-700 hover:bg-violet-100"
+    >
+      Use {s.value}?{s.confidence < 0.6 ? " (not sure)" : ""}
+    </button>
   );
 }

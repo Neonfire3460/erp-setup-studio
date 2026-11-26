@@ -23,7 +23,7 @@ import { submitTicket, supplierInfo } from "@/lib/v3/wizard.functions";
 import { checkDraft, ticketLines, type MissingField } from "@/lib/nmk/ticket";
 import type { SupplierAnswer } from "@/lib/nmk/types";
 import { cn } from "@/lib/utils";
-import { brandOf, type PriceCheckData, type StepProps } from "./shared";
+import { subActivityKit, brandOf, type PriceCheckData, type StepProps } from "./shared";
 
 export function StepSuppliers({ draft, setDraft, opts, next, back, busy }: StepProps) {
   const [loading, setLoading] = useState(false);
@@ -127,11 +127,18 @@ export function StepSuppliers({ draft, setDraft, opts, next, back, busy }: StepP
   );
 }
 
-function useMissing({ draft, opts }: Pick<StepProps, "draft" | "opts">) {
+function useMissing({
+  draft,
+  opts,
+  pc = null,
+}: Pick<StepProps, "draft" | "opts"> & { pc?: PriceCheckData | null }) {
   const brand = brandOf(opts, draft.brand);
+  // Without the price check data we don't know the ERP's Sub Activities, so only "is it filled" is
+  // checked here; the server checks the value on submit.
+  const subs = pc ? subActivityKit(brand, pc).options : [];
   return checkDraft(draft, {
     units: opts.units.map((u) => u.code),
-    ...(brand?.sub_activities.length ? { subActivities: brand.sub_activities } : {}),
+    ...(subs.length ? { subActivities: subs } : {}),
   });
 }
 
@@ -176,7 +183,7 @@ export function StepCheck({
   busy,
   pc,
 }: StepProps & { pc: PriceCheckData | null }) {
-  const missing = useMissing({ draft, opts });
+  const missing = useMissing({ draft, opts, pc });
   const big =
     pc?.result.perEntity.reduce((a, e) => a + e.rows.filter((r) => r.check).length, 0) ?? 0;
   const gone = pc?.result.missing.length ?? 0;

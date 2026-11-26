@@ -2,6 +2,7 @@
 import type { wizardOptions, priceCheck } from "@/lib/v3/wizard.functions";
 import type { CategoryRow } from "@/lib/nmk/categories";
 import type { TicketDraft, TicketLine, Line } from "@/lib/nmk/types";
+import { subActivityOptions, suggestSubActivity, trainSubActivity } from "@/lib/nmk/subActivity";
 
 export type Options = Awaited<ReturnType<typeof wizardOptions>>;
 export type PriceCheckData = Awaited<ReturnType<typeof priceCheck>>;
@@ -69,4 +70,16 @@ export const brandOf = (opts: Options, brand: string) =>
 export async function loadExcelJS() {
   const mod = (await import("exceljs")) as unknown as { Workbook?: unknown; default?: unknown };
   return mod.Workbook ? mod : mod.default;
+}
+
+/** Sub Activity choices for a brand (admin list + the ERP's) and a recommender trained on the brand's items. */
+export function subActivityKit(brand: Brand | undefined, pc: PriceCheckData | null) {
+  const known = pc?.known ?? [];
+  const options = subActivityOptions(brand?.sub_activities ?? [], known);
+  const model = trainSubActivity(known, options);
+  return {
+    options,
+    suggest: (itemCode: string, description: string) =>
+      suggestSubActivity(model, itemCode, description),
+  };
 }

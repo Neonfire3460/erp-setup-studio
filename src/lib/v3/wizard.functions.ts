@@ -203,6 +203,7 @@ export const priceCheck = createServerFn({ method: "POST" })
     // For Step 4 suggestions only: codes and categories of the brand's items (no prices).
     const known = masterItems.map((i) => ({
       itemCode: i.itemCode,
+      description: i.description,
       subCategoryCode: i.subCategoryCode,
       subActivity: i.subActivity,
     }));
@@ -290,9 +291,19 @@ export const submitTicket = createServerFn({ method: "POST" })
     const brand = core
       .ok(await db.rpc("list_brands_v3"))
       .find((b) => b.brand_activity.toUpperCase() === d.brand.toUpperCase());
+    // Sub Activities: the admin's list plus the ones the brand's ERP items use (Neat, Neat Pulse).
+    const { subActivityOptions } = await import("@/lib/nmk/subActivity");
+    const subOpts = subActivityOptions(
+      brand?.sub_activities ?? [],
+      (ctx.erp[master] ?? []).map((i) => ({
+        itemCode: i.itemCode,
+        description: i.description,
+        subActivity: i.subActivity,
+      })),
+    );
     const missing = checkDraft(d, {
       units: ctx.units.map((u) => u.code),
-      ...(brand?.sub_activities.length ? { subActivities: brand.sub_activities } : {}),
+      ...(subOpts.length ? { subActivities: subOpts } : {}),
     });
     if (missing.length && !data.allowIncomplete)
       throw new Error(
