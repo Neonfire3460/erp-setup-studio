@@ -1,5 +1,7 @@
 // core.server.ts: shared backend helpers for NMK Unite v3 (service role, server only).
 // Roles, settings, the ticket context (ERP data, rules, rates, suppliers) and ticket persistence.
+import { pickBrand } from "@/lib/nmk/brands";
+import { isDemoItem } from "@/lib/nmk/util";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getRequest } from "@tanstack/react-start/server";
 import type { Database, Json } from "@/integrations/supabase/types";
@@ -213,7 +215,16 @@ export async function loadCategories(db: DB): Promise<CategoryRow[]> {
 }
 
 /** The brand's items in the active ERP data of one entity. */
-export async function loadBrandErp(db: DB, entityCode: string, brand: string): Promise<ErpItem[]> {
+/**
+ * A brand's items in one entity's active ERP data. Demo and open-box codes are left out unless withDemo:
+ * only View ERP data shows them (behind a switch); tickets, prices and PDFs never use them.
+ */
+export async function loadBrandErp(
+  db: DB,
+  entityCode: string,
+  brand: string,
+  opts: { withDemo?: boolean } = {},
+): Promise<ErpItem[]> {
   const rows = await allRows<Tables["erp_items"]["Row"]>(
     (a, b) =>
       db
@@ -224,7 +235,8 @@ export async function loadBrandErp(db: DB, entityCode: string, brand: string): P
         .order("item_code")
         .range(a, b) as never,
   );
-  return rows.map((r) => rowToErpItem(r));
+  const items = rows.map((r) => rowToErpItem(r));
+  return opts.withDemo ? items : items.filter((i) => !isDemoItem(i));
 }
 
 export async function loadRules(db: DB, brand: string): Promise<PricingRule[]> {
@@ -278,8 +290,8 @@ export async function loadTicketContext(
         .from("brands")
         .select("*")
         .ilike("brand_activity", likeExact(brand))
-        .maybeSingle()
-        .then((r) => r.data),
+        .limit(5)
+        .then((r) => pickBrand(r.data ?? [])),
       allRows<Tables["approved_prices"]["Row"]>((a, b) =>
         db
           .from("approved_prices")

@@ -69,6 +69,9 @@ function Page() {
   const [note, setNote] = useState("");
   const [status, setStatus] = useState<"active" | "inactive" | "all">("active");
   const [cat, setCat] = useState("all");
+  const [sub, setSub] = useState("all");
+  const [showDemo, setShowDemo] = useState(false);
+  const [showSpares, setShowSpares] = useState(false);
   const [web, setWeb] = useState<"any" | "on" | "off">("any");
   const [page, setPage] = useState(0);
   const [size, setSize] = useState<number>(50);
@@ -87,12 +90,30 @@ function Page() {
     const s = q.trim().toLowerCase();
     return items.filter(
       (i) =>
+        (showDemo || !i.demo) &&
+        (showSpares || !i.spare) &&
+        (sub === "all" || (i.subActivity || "") === sub) &&
         (entity === "all" || i.entityCode === entity) &&
         (cat === "all" || (i.family ?? "") === cat) &&
         (web === "any" || (web === "on" ? i.web === 1 : i.web !== 1)) &&
         (!s || i.itemCode.toLowerCase().includes(s) || i.description.toLowerCase().includes(s)),
     );
-  }, [items, entity, cat, web, q]);
+  }, [items, entity, cat, web, q, sub, showDemo, showSpares]);
+  const nDemo = useMemo(() => items.filter((i) => i.demo).length, [items]);
+  const nSpare = useMemo(() => items.filter((i) => i.spare).length, [items]);
+  const subs = useMemo(
+    () =>
+      [...new Set(items.filter((i) => showDemo || !i.demo).map((i) => i.subActivity || ""))].sort(
+        (a, b) => (a ? (b ? a.localeCompare(b) : -1) : 1),
+      ),
+    [items, showDemo],
+  );
+  const retailCur =
+    entity === "all"
+      ? [...new Set(ents.map((e) => e.currency))].length === 1
+        ? ents[0]!.currency
+        : ""
+      : (ents.find((e) => e.code === entity)?.currency ?? "");
   const nActive = base.filter((i) => stateOf(i) === 0).length;
   const shown =
     status === "all" ? base : base.filter((i) => stateOf(i) === (status === "active" ? 0 : 1));
@@ -170,6 +191,7 @@ function Page() {
       shown.map((i) => ({
         "Item Code": i.itemCode,
         Description: i.description,
+        "Sub Activity": i.subActivity,
         Entity: i.entityCode,
         Status: stateOf(i) === 1 ? "Inactive" : "Active",
         Web: i.web === 1 ? "Shown" : "Hidden",
@@ -177,6 +199,9 @@ function Page() {
         Cost: i.cost ?? "",
         "Cost currency": i.costCurrency ?? "",
         Retail: i.retail ?? "",
+        "Retail currency": i.retailCurrency,
+        Demo: i.demo ? "Yes" : "",
+        Spare: i.spare ? "Yes" : "",
         "Max discount %": i.maxDiscount ?? "",
         Family: i.family ?? "",
         Group: i.group ?? "",
@@ -228,6 +253,7 @@ function Page() {
                 setMoves(new Map());
                 setEntity("all");
                 setCat("all");
+                setSub("all");
                 reset();
               }}
               className="h-11 w-64 bg-card"
@@ -335,6 +361,20 @@ function Page() {
                 ...families.map((f) => [f, f] as [string, string]),
               ]}
             />
+            {subs.length > 1 && (
+              <FilterSelect
+                label="Sub Activity"
+                value={sub}
+                onChange={(v) => {
+                  setSub(v);
+                  reset();
+                }}
+                options={[
+                  ["all", "Every Sub Activity"],
+                  ...subs.map((x) => [x, x || "(no Sub Activity)"] as [string, string]),
+                ]}
+              />
+            )}
             <FilterSelect
               label="Website"
               value={web}
@@ -348,10 +388,46 @@ function Page() {
                 ["off", "Hidden from web"],
               ]}
             />
-            <label className="ml-auto flex items-center gap-2 text-sm font-semibold">
-              <Switch checked={cats} onCheckedChange={setCats} />
-              Show categories
-            </label>
+            <span className="ml-auto flex flex-wrap items-center gap-4">
+              <label
+                className={cn(
+                  "flex items-center gap-2 text-sm font-semibold",
+                  !nDemo && "opacity-50",
+                )}
+                title="Demo, no-demo, old demo and open-box codes"
+              >
+                <Switch
+                  checked={showDemo}
+                  disabled={!nDemo}
+                  onCheckedChange={(v) => {
+                    setShowDemo(v);
+                    reset();
+                  }}
+                />
+                Show demo ({fmtNum(nDemo)})
+              </label>
+              <label
+                className={cn(
+                  "flex items-center gap-2 text-sm font-semibold",
+                  !nSpare && "opacity-50",
+                )}
+                title="Items whose Sub Activity (Table 4) is spares"
+              >
+                <Switch
+                  checked={showSpares}
+                  disabled={!nSpare}
+                  onCheckedChange={(v) => {
+                    setShowSpares(v);
+                    reset();
+                  }}
+                />
+                Show spares ({fmtNum(nSpare)})
+              </label>
+              <label className="flex items-center gap-2 text-sm font-semibold">
+                <Switch checked={cats} onCheckedChange={setCats} />
+                Show categories
+              </label>
+            </span>
           </div>
 
           {picked.size > 0 && (
@@ -428,11 +504,14 @@ function Page() {
                     </th>
                     <th className="px-2 py-3">Item code</th>
                     <th className="px-2 py-3">Description</th>
+                    <th className="px-2 py-3">Sub Activity</th>
                     {entity === "all" && <th className="px-2 py-3">Entity</th>}
                     <th className="px-2 py-3">Web</th>
                     <th className="px-2 py-3">B2B prices</th>
                     <th className="px-2 py-3 text-right">Cost</th>
-                    <th className="px-2 py-3 text-right">Retail</th>
+                    <th className="px-2 py-3 text-right">
+                      Retail{retailCur ? ` (${retailCur})` : ""}
+                    </th>
                     <th className="px-2 py-3 text-right">Max disc.</th>
                     <th className="px-3.5 py-3">Status</th>
                   </tr>
@@ -448,6 +527,7 @@ function Page() {
                       mine={moves.has(keyOf(i)) && moves.get(keyOf(i)) !== i.inactive}
                       cats={cats}
                       showEntity={entity === "all"}
+                      showRetailCur={!retailCur}
                       undo={() =>
                         setMoves((m) => {
                           const n = new Map(m);
@@ -633,6 +713,15 @@ function Page() {
   );
 }
 
+/** Whole prices without decimals, others with two (1,250 and 1,249.50). */
+const fmtPrice = (n: number | null | undefined) =>
+  n === null || n === undefined
+    ? ""
+    : n.toLocaleString(undefined, {
+        minimumFractionDigits: Number.isInteger(n) ? 0 : 2,
+        maximumFractionDigits: 2,
+      });
+
 /** Page buttons: first, last, and two either side of the current page. */
 function pageList(cur: number, pages: number): (number | null)[] {
   const out: (number | null)[] = [];
@@ -720,6 +809,7 @@ function Row({
   mine,
   cats,
   showEntity,
+  showRetailCur,
   undo,
 }: {
   i: Item;
@@ -729,6 +819,7 @@ function Row({
   mine: boolean;
   cats: boolean;
   showEntity: boolean;
+  showRetailCur: boolean;
   undo: () => void;
 }) {
   const k = keyOf(i);
@@ -769,6 +860,17 @@ function Row({
         </p>
         {cats && <CategoryPath i={i} />}
       </td>
+      <td className="whitespace-nowrap px-2 py-2.5 text-[13px]">
+        {i.subActivity || <span className="text-muted-foreground">-</span>}
+        {i.demo && (
+          <span className="ml-1.5 rounded bg-warning-soft px-1.5 py-0.5 text-[11px] font-bold text-warning">
+            Demo
+          </span>
+        )}
+        {i.spare && (
+          <span className="ml-1.5 rounded bg-muted px-1.5 py-0.5 text-[11px] font-bold">Spare</span>
+        )}
+      </td>
       {showEntity && (
         <td className="px-2 py-2.5">
           <span className="rounded-md bg-muted px-2 py-0.5 text-xs font-bold">{i.entityCode}</span>
@@ -781,9 +883,14 @@ function Row({
         <Shown on={i.b2b} />
       </td>
       <td className="whitespace-nowrap px-2 py-2.5 text-right tabular-nums">
-        {fmtNum(i.cost)} <span className="text-xs text-muted-foreground">{i.costCurrency}</span>
+        {fmtPrice(i.cost)} <span className="text-xs text-muted-foreground">{i.costCurrency}</span>
       </td>
-      <td className="px-2 py-2.5 text-right tabular-nums">{fmtNum(i.retail)}</td>
+      <td className="whitespace-nowrap px-2 py-2.5 text-right tabular-nums">
+        {fmtPrice(i.retail)}
+        {showRetailCur && i.retail !== null && (
+          <span className="ml-1 text-xs text-muted-foreground">{i.retailCurrency}</span>
+        )}
+      </td>
       <td className="px-2 py-2.5 text-right tabular-nums">
         {i.maxDiscount === null || i.maxDiscount === undefined ? "-" : `${i.maxDiscount}%`}
       </td>

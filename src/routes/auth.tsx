@@ -74,7 +74,8 @@ function AuthPage() {
               </span>
             </h1>
             <p className="max-w-[520px] text-xl leading-relaxed text-[#D9DEFF]">
-              Item registration, ERP data, compliance, documents and an AI agent, all in one place.
+              The one-stop home for NMK tools, built to help every team work faster and get it right
+              first time.
             </p>
           </div>
           <div className="grid max-w-[640px] grid-cols-3 gap-4">

@@ -46,6 +46,24 @@ export const codeKey = (code: unknown) => cellText(code).toUpperCase();
 /** Gap 6: any item code that starts with "Demo" (any case) is never used anywhere. */
 export const isDemoCode = (code: unknown) => /^demo/i.test(cellText(code));
 
+/**
+ * Demo, no-demo, old demo and open-box stock in the ERP (Demo-Man-NEATBAR-SE, Old-Demo-NEATBAR-SE, NoDemo-X,
+ * OpenBox-X). "demo" must start a word, so NEATPAD-SIDEMOUNT is not one.
+ */
+export function isDemoItem(i: { itemCode: string; description?: string; subActivity?: string }) {
+  const code = cellText(i.itemCode);
+  return (
+    /(^|[^a-z0-9])(no[\s_-]?)?demo/i.test(code) ||
+    /open[\s_-]*box/i.test(code) ||
+    /\b(demo|open[\s-]?box)\b/i.test(i.description ?? "") ||
+    /demo|open[\s-]?box/i.test(i.subActivity ?? "")
+  );
+}
+
+/** Spare parts: the Sub Activity (Table 4) says spare ("Neat Spares"), or the code has a SPARE part. */
+export const isSpareItem = (i: { itemCode: string; subActivity?: string }) =>
+  /spare/i.test(i.subActivity ?? "") || /(^|[^a-z])spares?([^a-z]|$)/i.test(cellText(i.itemCode));
+
 /** Gap 1: Categories Data writes SubCategory as "AE01_L30127"; the ERP uses "L30127". */
 export const stripAE01 = (code: unknown) => cellText(code).replace(/^AE01_/i, "");
 

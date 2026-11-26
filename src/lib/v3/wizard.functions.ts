@@ -37,8 +37,10 @@ export const wizardOptions = createServerFn({ method: "GET" })
     ]);
     const core = await import("@/server/v3/core.server");
     const scope = await core.brandScope(await core.adminDb(), context.userId);
+    const { mergeBrandSpellings } = await import("@/lib/nmk/brands");
+    const one = mergeBrandSpellings(brands);
     return {
-      brands: scope ? brands.filter((b) => scope.has(b.brand_activity.toUpperCase())) : brands,
+      brands: scope ? one.filter((b) => scope.has(b.brand_activity.toUpperCase())) : one,
       brandScoped: !!scope,
       entities,
       currencies,
@@ -288,9 +290,10 @@ export const submitTicket = createServerFn({ method: "POST" })
       isNew: !masterCodes.has(codeKey(l.itemCode)),
       include: masterCodes.has(codeKey(l.itemCode)) ? true : l.include,
     }));
-    const brand = core
-      .ok(await db.rpc("list_brands_v3"))
-      .find((b) => b.brand_activity.toUpperCase() === d.brand.toUpperCase());
+    const { mergeBrandSpellings } = await import("@/lib/nmk/brands");
+    const brand = mergeBrandSpellings(core.ok(await db.rpc("list_brands_v3"))).find(
+      (b) => b.brand_activity.toUpperCase() === d.brand.toUpperCase(),
+    );
     // Sub Activities: the admin's list plus the ones the brand's ERP items use (Neat, Neat Pulse).
     const { subActivityOptions } = await import("@/lib/nmk/subActivity");
     const subOpts = subActivityOptions(

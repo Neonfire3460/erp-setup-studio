@@ -1,6 +1,6 @@
 // ERP data import (A4): one entity's export. Finds the brands in the file and replaces only those brands.
 // Then cross-checks Uploaded tickets of those brands, which become Verified in ERP when everything matches.
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { CheckCircle2, Loader2, Upload } from "lucide-react";
 import { toast } from "sonner";
@@ -25,7 +25,16 @@ import {
 } from "@/components/ui/table";
 import { UploadArea } from "@/components/UploadArea";
 import { Card, Label11, Stat, errText, fmtDate } from "@/components/v3/ui";
-import { brandSummary, diffErp, erpItemToRow, type ReadErpResult } from "@/lib/nmk/erp";
+import {
+  brandSummary,
+  diffErp,
+  erpItemToRow,
+  readCostFile,
+  withCosts,
+  type ErpItem,
+  type ReadErpResult,
+} from "@/lib/nmk/erp";
+import { brandSpelling, mergeBrandSpellings } from "@/lib/nmk/brands";
 import type { CategoryRow } from "@/lib/nmk/categories";
 import { crossCheckTickets } from "@/lib/v3/tickets.functions";
 import { storedForBrands } from "@/lib/v3/erp.functions";
@@ -104,8 +113,40 @@ export function ErpImport({
   const [history, setHistory] = useState<Hist[]>([]);
   const [entity, setEntity] = useState(initialEntity ?? "001");
   const [file, setFile] = useState<File | null>(null);
-  const [res, setRes] = useState<ReadErpResult | null>(null);
-  const [diff, setDiff] = useState<Diff | null>(null);
+  const [base, setBase] = useState<ReadErpResult | null>(null);
+  const [stored, setStored] = useState<{
+    stored: number;
+    items: ErpItem[] | null;
+    allBrands: boolean;
+  } | null>(null);
+  const [costFile, setCostFile] = useState<File | null>(null);
+  const [costs, setCosts] = useState<Map<string, number> | null>(null);
+  // The export, with the cost file's prices when one was added (NMK sends cost as a second file).
+  const res = useMemo(
+    () => (base && costs && costFile ? withCosts(base, costs, costFile.name) : base),
+    [base, costs, costFile],
+  );
+  const diff = useMemo<Diff | null>(() => {
+    if (!res || !stored) return null;
+    if (!stored.items)
+      return {
+        stored: stored.stored,
+        added: null,
+        changed: null,
+        removed: null,
+        allBrands: stored.allBrands,
+      };
+    const d = diffErp(stored.items, res.items);
+    return {
+      stored: stored.stored,
+      added: d.added.length,
+      changed: d.changed.length,
+      removed: d.removed.length,
+      allBrands: false,
+    };
+  }, [res, stored]);
+  const setRes = (r: ReadErpResult | null) => setBase(r);
+  const setDiff = (d: null) => setStored(d);
   const [okMissing, setOkMissing] = useState(false);
   const [status, setStatus] = useState("");
   const [progress, setProgress] = useState<number | null>(null);
@@ -191,7 +232,16 @@ export function ErpImport({
         reviewNote: "",
       }));
       const currencyByBrand = Object.fromEntries(
-        brands.filter((b) => b.last_currency).map((b) => [b.brand_activity, b.last_currency!]),
+        brands
+          .filter((b) => b.last_currency)
+          .flatMap((b) => [
+            [b.brand_activity, b.last_currency!],
+            [b.brand_activity.toUpperCase(), b.last_currency!],
+            [
+              b.brand_activity.charAt(0) + b.brand_activity.slice(1).toLowerCase(),
+              b.last_currency!,
+            ],
+          ]),
       );
       const r = await parseInWorker(f, entity, categories, currencyByBrand, (n) =>
         setStatus(`Read ${n.toLocaleString()} rows. Checking columns...`),
@@ -205,29 +255,34 @@ export function ErpImport({
       const cmp = await storedForBrands({
         data: { entityCode: entity, brands: r.brands.map((b) => b.brand) },
       });
-      if (cmp.items) {
-        const d = diffErp(cmp.items, r.items);
-        setDiff({
-          stored: cmp.stored,
-          added: d.added.length,
-          changed: d.changed.length,
-          removed: d.removed.length,
-          allBrands: false,
-        });
-      } else
-        setDiff({
-          stored: cmp.stored,
-          added: null,
-          changed: null,
-          removed: null,
-          allBrands: cmp.allBrands,
-        });
+      setStored(cmp);
       setStatus("");
     } catch (e) {
       setStatus(errText(e));
       toast.error(errText(e));
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function readCost(f: File) {
+    try {
+      const XLSX = await import("xlsx");
+      const wb = XLSX.read(await f.arrayBuffer());
+      const rows = XLSX.utils.sheet_to_json<unknown[]>(wb.Sheets[wb.SheetNames[0]!]!, {
+        header: 1,
+        defval: null,
+      });
+      const r = readCostFile(rows);
+      if (r.problem) {
+        toast.error(r.problem);
+        return;
+      }
+      setCostFile(f);
+      setCosts(r.costs);
+      toast.success(`${r.costs.size.toLocaleString()} cost prices read from ${f.name}`);
+    } catch (e) {
+      toast.error(errText(e));
     }
   }
 
@@ -246,7 +301,12 @@ export function ErpImport({
     let importId: string | null = null;
     let merged = false;
     try {
-      const items = res.items;
+      // Save the brand as the brands table already spells it ("NEAT" in the file -> "Neat"), so the site keeps one.
+      const known = await supabase.from("brands").select("brand_activity,logo_path");
+      const spell = brandSpelling(
+        mergeBrandSpellings(known.data ?? []).map((b) => b.brand_activity),
+      );
+      const items = res.items.map((i) => (i.brand ? { ...i, brand: spell(i.brand) } : i));
       const me = (await supabase.auth.getUser()).data.user?.id ?? null;
       const created = await supabase
         .from("erp_imports")
@@ -255,7 +315,7 @@ export function ErpImport({
           file_name: file?.name ?? null,
           row_count: items.length,
           imported_by: me,
-          brands: res.brands.map((b) => b.brand),
+          brands: [...new Set(res.brands.map((b) => spell(b.brand)))],
           mode: "merge",
           active: false,
           counts: {
@@ -406,6 +466,18 @@ export function ErpImport({
             setFile(null);
             setRes(null);
             setDiff(null);
+          }}
+        />
+        <UploadArea
+          file={costFile}
+          onFile={(f) => void readCost(f)}
+          disabled={busy}
+          accept=".xlsx,.csv"
+          hint='Optional. When the cost comes as a second file: "Item code" + "Purchase price in currency"'
+          label="Drop the cost price file here (optional)"
+          onRemove={() => {
+            setCostFile(null);
+            setCosts(null);
           }}
         />
         {status && (

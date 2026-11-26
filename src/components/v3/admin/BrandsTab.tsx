@@ -10,6 +10,7 @@ import { Card, Label11, errText, fmtDate } from "@/components/v3/ui";
 import { defaultBrandLogo, fileToLogo } from "@/lib/v3/logo";
 import { learnOrder, type PdfTextItem } from "@/lib/nmk/pdfOrder";
 import { pdfStyleFor, rgbHex, type PdfStyleOverride } from "@/lib/nmk/pricelistPdf";
+import { mergeBrandSpellings } from "@/lib/nmk/brands";
 import { brandErpCodes } from "@/lib/v3/erp.functions";
 import { cn } from "@/lib/utils";
 import { ListEditor, loadAll, looseDb, type Row } from "./ListEditor";
@@ -62,7 +63,8 @@ export function BrandsTab({
   const [newBrand, setNewBrand] = useState("");
   async function load() {
     try {
-      setBrands((await loadAll("brands", {}, "brand_activity")) as Brand[]);
+      // One row per brand: "NEAT" and "Neat" are the same brand (see mergeBrandSpellings).
+      setBrands(mergeBrandSpellings((await loadAll("brands", {}, "brand_activity")) as Brand[]));
     } catch (e) {
       toast.error(errText(e));
     }

@@ -59,9 +59,12 @@ export const itemsBrowse = createServerFn({ method: "POST" })
     await core.requireBrand(db, context.userId, data.brand);
     const entities = (await core.loadEntities(db)).filter((e) => e.active);
     const [lists, changes] = await Promise.all([
-      Promise.all(entities.map((e) => core.loadBrandErp(db, e.code, data.brand))),
+      Promise.all(
+        entities.map((e) => core.loadBrandErp(db, e.code, data.brand, { withDemo: true })),
+      ),
       overlay(db, data.brand),
     ]);
+    const { isDemoItem, isSpareItem } = await import("@/lib/nmk/util");
     const items = entities.flatMap((e, i) =>
       lists[i]!.map((it) => {
         const ch = changes.get(`${e.code}|${it.itemCode.toUpperCase()}`);
@@ -70,6 +73,10 @@ export const itemsBrowse = createServerFn({ method: "POST" })
           entityCode: e.code,
           itemCode: it.itemCode,
           description: it.description,
+          subActivity: it.subActivity,
+          demo: isDemoItem(it),
+          spare: isSpareItem(it),
+          retailCurrency: e.currency,
           web: it.web,
           b2b: it.web, // the ERP export has one WEB flag; B2B follows it
           erpInactive,

@@ -1,8 +1,8 @@
 // erp.ts: ERP item data. Reads an ERP export (rows from SheetJS or PapaParse, in a Web Worker),
-// finds which brands it holds, skips Demo codes, checks the columns, and compares with what is stored.
+// finds which brands it holds, marks Demo codes, checks the columns, and compares with what is stored.
 // Only the brands found in the file are replaced (gap 18). Accepts both NMK export layouts seen so far:
 // the 21-column one (codes and "code - name" columns) and the 53-column one ("code - name" only, WEB, Currency, Table 4).
-import { cellText, codeKey, codeText, isDemoCode, parseNumber, splitCodeName } from "./util";
+import { cellText, codeKey, codeText, isDemoItem, parseNumber, splitCodeName } from "./util";
 import type { CategoryRow } from "./categories";
 
 export interface ErpItem {
@@ -247,15 +247,12 @@ export function readErpExport(
   const seen = new Set<string>();
   const brandCount = new Map<string, { items: number; active: number }>();
   let filled = 0;
+  let demo = 0;
   for (let r = 1; r < rows.length; r++) {
     const v = rows[r] ?? [];
     const t = (i: number) => (i < 0 ? "" : cellText(v[i]));
     const itemCode = t(I.code);
     if (!itemCode) continue;
-    if (isDemoCode(itemCode)) {
-      res.demoSkipped++;
-      continue;
-    }
     const key = codeKey(itemCode);
     if (seen.has(key)) {
       res.duplicates.push(itemCode);
@@ -324,6 +321,7 @@ export function readErpExport(
       if (used) filled++;
     }
     res.items.push(item);
+    if (isDemoItem(item)) demo++;
     const b = brandCount.get(brand) ?? { items: 0, active: 0 };
     b.items++;
     if (item.inactive !== 1) b.active++;
@@ -331,7 +329,10 @@ export function readErpExport(
   }
   if (filled)
     res.notes.push(`${filled} items had category codes filled from the Categories table.`);
-  if (res.demoSkipped) res.notes.push(`${res.demoSkipped} Demo codes left out.`);
+  if (demo)
+    res.notes.push(
+      `${demo} demo / open-box codes are kept: View ERP data hides them unless "Show demo" is on, and tickets, prices and PDFs never use them.`,
+    );
   if (res.duplicates.length)
     res.notes.push(`${res.duplicates.length} rows repeat an item code (first row kept).`);
   const noCur = res.items.filter((i) => !i.costCurrency).length;
@@ -505,5 +506,54 @@ export function rowToErpItem(r: {
     web: flagOrNull(r.webactive),
     maxDiscount: numOrNull(r.max_discount_pct),
     supplierCode: r.supplier_code ?? "",
+  };
+}
+
+/**
+ * NMK sends some exports as two files: the item export without cost, and a small file with only
+ * "Item code" + "Purchase price in currency". Reads the small one: item code -> cost.
+ */
+export function readCostFile(rows: unknown[][]): { costs: Map<string, number>; problem: string } {
+  const head = (rows[0] ?? []).map((h) => norm(cellText(h)));
+  const ci = head.findIndex((h) => h === "item code");
+  const pi = head.findIndex((h) =>
+    ["purchase price in currency", "purchase price", "cost price", "cost"].includes(h),
+  );
+  const costs = new Map<string, number>();
+  if (ci < 0 || pi < 0)
+    return {
+      costs,
+      problem:
+        'The cost file needs an "Item code" column and a "Purchase price in currency" column.',
+    };
+  for (let r = 1; r < rows.length; r++) {
+    const v = rows[r] ?? [];
+    const code = cellText(v[ci]);
+    const n = parseNumber(v[pi]);
+    if (code && n !== null && !costs.has(codeKey(code))) costs.set(codeKey(code), n);
+  }
+  return { costs, problem: "" };
+}
+
+/** Copies the cost file's prices into the export's items (by item code). Returns a new result. */
+export function withCosts(r: ReadErpResult, costs: Map<string, number>, fileName: string) {
+  let matched = 0;
+  const items = r.items.map((i) => {
+    const c = costs.get(codeKey(i.itemCode));
+    if (c === undefined) return i;
+    matched++;
+    return { ...i, cost: c };
+  });
+  const missing = r.items.length - matched;
+  return {
+    ...r,
+    items,
+    missingColumns: matched
+      ? r.missingColumns.filter((m) => !/purchase price/i.test(m.header))
+      : r.missingColumns,
+    notes: [
+      ...r.notes,
+      `Cost price taken from ${fileName} for ${matched} of ${r.items.length} items${missing ? ` (${missing} have no cost there)` : ""}.`,
+    ],
   };
 }

@@ -25,8 +25,9 @@ export const pdfOptions = createServerFn({ method: "GET" })
     ]);
     const core = await import("@/server/v3/core.server");
     const scope = await core.brandScope(await core.adminDb(), context.userId);
+    const { mergeBrandSpellings } = await import("@/lib/nmk/brands");
     return {
-      brands: brands
+      brands: mergeBrandSpellings(brands)
         .filter((b) => !scope || scope.has(b.brand_activity.toUpperCase()))
         .map((b) => ({
           brand: b.brand_activity,
@@ -96,8 +97,8 @@ export const pdfItems = createServerFn({ method: "POST" })
         .from("brands")
         .select("brand_activity,logo_path")
         .ilike("brand_activity", core.likeExact(data.brand))
-        .maybeSingle()
-        .then((r) => r.data),
+        .limit(5)
+        .then(async (r) => (await import("@/lib/nmk/brands")).pickBrand(r.data ?? [])),
     ]);
     // The item list: the entity's own ERP data, else the region master's (codes, descriptions, status, categories).
     const base = own.length ? own : masterItems;

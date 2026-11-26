@@ -1,4 +1,5 @@
 // Users: add people, give them roles (a person can have several), disable accounts.
+import { mergeBrandSpellings } from "@/lib/nmk/brands";
 import { useEffect, useState } from "react";
 import { Loader2, Search, Tags, UserPlus } from "lucide-react";
 import { toast } from "sonner";
@@ -70,7 +71,9 @@ export function UsersTab({ isAdmin }: { isAdmin: boolean }) {
       for (const x of a.rows) m.set(x.user_id, [...(m.get(x.user_id) ?? []), x.brand_activity]);
       setAccess({ ready: a.ready, byUser: m });
       setAllBrands(
-        ((b.data ?? []) as { brand_activity: string }[]).map((x) => x.brand_activity).sort(),
+        mergeBrandSpellings((b.data ?? []) as { brand_activity: string }[])
+          .map((x) => x.brand_activity)
+          .sort(),
       );
     }
   }
