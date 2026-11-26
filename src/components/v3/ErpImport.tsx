@@ -183,6 +183,28 @@ export function ErpImport({
   }, []);
 
   async function read(f: File) {
+    // A small file with only Item code + Purchase price is the cost file: put it in the cost box instead.
+    if (f.size < 5_000_000) {
+      try {
+        const XLSX = await import("xlsx");
+        const wb = XLSX.read(await f.arrayBuffer(), { sheetRows: 2 });
+        const head =
+          XLSX.utils.sheet_to_json<unknown[]>(wb.Sheets[wb.SheetNames[0]!]!, {
+            header: 1,
+            defval: null,
+          })[0] ?? [];
+        const filled = head.filter((h) => h !== null && String(h).trim() !== "");
+        if (filled.length <= 3 && !readCostFile([head]).problem) {
+          toast.info(
+            "That's the cost price file, so it went in the cost box. Now drop the item export (the file with Brand-Activity, Description, Table 4...) in the first box.",
+          );
+          await readCost(f);
+          return;
+        }
+      } catch {
+        // not readable here: the worker below reports it
+      }
+    }
     setFile(f);
     setRes(null);
     setDiff(null);
