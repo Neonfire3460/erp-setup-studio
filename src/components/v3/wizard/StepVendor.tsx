@@ -1,7 +1,7 @@
 // Step 2A: Option A. Upload the vendor's pricelist (Excel or PDF). The AI says which column is which, the user
 // answers its questions, then reviews every row. Codes and prices are always copied from the file.
 import { useMemo, useState } from "react";
-import { AlertTriangle, Loader2, Sparkles, Trash2 } from "lucide-react";
+import { AlertTriangle, Loader2, Sparkles, Trash2, Undo2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,6 +22,7 @@ import {
 } from "@/lib/nmk/vendorRead";
 import type { PdfTextItem } from "@/lib/nmk/pdfOrder";
 import type { TicketDraft } from "@/lib/nmk/types";
+import { codeKey } from "@/lib/nmk/util";
 import { aiReadLayout, saveAiLayout, type AiLayout } from "@/lib/v3/ai.functions";
 import { cn } from "@/lib/utils";
 import { toTicketLine } from "./shared";
@@ -164,7 +165,7 @@ export function StepVendor({
   );
   const lines: VendorLine[] = useMemo(() => {
     if (!result) return [];
-    return result.lines
+    const kept = result.lines
       .filter((l) => !removed.has(l.lineNo))
       .map((l) => {
         if (!(l.lineNo in edits)) return l;
@@ -176,7 +177,43 @@ export function StepVendor({
           flags: ok ? l.flags.filter((f) => !/price/i.test(f) || /Hidden/.test(f)) : l.flags,
         };
       });
+    // The same code more than once (vendors often list old and new prices): say where the other copy is
+    // and at what price, so the person deletes the one they don't need. The note goes once one is left.
+    const byCode = new Map<string, VendorLine[]>();
+    for (const l of kept)
+      byCode.set(codeKey(l.itemCode), [...(byCode.get(codeKey(l.itemCode)) ?? []), l]);
+    return kept.map((l) => {
+      const others = (byCode.get(codeKey(l.itemCode)) ?? []).filter((o) => o !== l);
+      if (!others.length) return l;
+      const where = others
+        .map((o) => {
+          const at = o.source?.page
+            ? `page ${o.source.page} row ${o.source.row}`
+            : `${o.source?.sheet ? `${o.source.sheet} ` : ""}row ${o.source?.row ?? "?"}`;
+          const same = o.cost === l.cost;
+          return `${at} (${o.cost === null ? "no price" : fmtNum(o.cost)}${same ? ", same price" : ""})`;
+        })
+        .join(", ");
+      const differs = others.some((o) => o.cost !== l.cost);
+      return {
+        ...l,
+        flags: [
+          `Duplicate: another copy of this code is on ${where}${differs ? " with a different price" : ""}. Delete the one you don't want to keep.`,
+          ...l.flags,
+        ],
+      };
+    });
   }, [result, edits, removed]);
+  const removedLines = useMemo(
+    () => (result?.lines ?? []).filter((l) => removed.has(l.lineNo)),
+    [result, removed],
+  );
+  const restore = (lineNos: number[]) =>
+    setRemoved((s) => {
+      const n = new Set(s);
+      lineNos.forEach((x) => n.delete(x));
+      return n;
+    });
   const sorted = [...lines].sort(
     (a, b) => Number(b.flags.length > 0) - Number(a.flags.length > 0) || a.lineNo - b.lineNo,
   );
@@ -490,7 +527,12 @@ export function StepVendor({
                         size="icon"
                         variant="ghost"
                         title="Remove this row"
-                        onClick={() => setRemoved((s) => new Set(s).add(l.lineNo))}
+                        onClick={() => {
+                          setRemoved((s) => new Set(s).add(l.lineNo));
+                          toast(`Deleted ${l.itemCode}`, {
+                            action: { label: "Undo", onClick: () => restore([l.lineNo]) },
+                          });
+                        }}
                       >
                         <Trash2 />
                       </Button>
@@ -500,6 +542,36 @@ export function StepVendor({
               </tbody>
             </table>
           </div>
+          {removedLines.length > 0 && (
+            <div className="flex flex-wrap items-center gap-2 rounded-lg border border-dashed bg-muted/40 p-2.5 text-sm">
+              <span className="font-semibold">
+                {removedLines.length} deleted row{removedLines.length === 1 ? "" : "s"}:
+              </span>
+              {removedLines.slice(0, 30).map((l) => (
+                <button
+                  key={l.lineNo}
+                  type="button"
+                  title={`Bring back ${l.itemCode}`}
+                  onClick={() => restore([l.lineNo])}
+                  className="flex items-center gap-1 rounded-md border bg-card px-2 py-0.5 text-xs font-semibold hover:border-primary hover:text-primary"
+                >
+                  <Undo2 className="size-3" />
+                  {l.itemCode}
+                  {l.cost !== null ? ` · ${fmtNum(l.cost)}` : ""}
+                </button>
+              ))}
+              {removedLines.length > 30 && <span>and {removedLines.length - 30} more</span>}
+              <Button
+                size="sm"
+                variant="outline"
+                className="ml-auto"
+                onClick={() => restore(removedLines.map((l) => l.lineNo))}
+              >
+                <Undo2 />
+                Undo all deletes
+              </Button>
+            </div>
+          )}
           {blocking > 0 && (
             <p className="text-sm text-destructive">
               {blocking} row{blocking === 1 ? " has" : "s have"} no cost. Type it in or remove the

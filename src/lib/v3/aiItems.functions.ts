@@ -211,7 +211,21 @@ export const aiDescribe = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const { callTool } = await import("@/server/v3/ai.server");
-    const { erp, limit, learned } = await brandContext(data.brand, data.region, context.userId);
+    const { libraryDescription } = await import("@/lib/nmk/descriptionLibrary");
+    const {
+      erp,
+      limit: erpLimit,
+      learned,
+    } = await brandContext(data.brand, data.region, context.userId);
+    const limit = Math.max(erpLimit, 200);
+    // Codes with a ready-written description (Turtle AV, Neat) don't need the AI.
+    const ready = data.items.flatMap((x) => {
+      const d = libraryDescription(x.itemCode);
+      return d ? [{ lineNo: x.lineNo, description: d.slice(0, limit) }] : [];
+    });
+    const readyNos = new Set(ready.map((x) => x.lineNo));
+    data = { ...data, items: data.items.filter((x) => !readyNos.has(x.lineNo)) };
+    if (!data.items.length) return { items: ready, warning: null, limit };
     const style = erp
       .filter((i) => i.description)
       .slice(0, 25)
@@ -259,5 +273,5 @@ export const aiDescribe = createServerFn({ method: "POST" })
         description: String(x["description"]).replace(/\s+/g, " ").trim().slice(0, limit),
       }))
       .filter((x) => x.description);
-    return { items, warning: r.warning, limit };
+    return { items: [...ready, ...items], warning: r.warning, limit };
   });

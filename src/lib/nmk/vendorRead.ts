@@ -212,7 +212,6 @@ export function applyMapping(t: VendorTable, m: ColumnMapping, opts: { ownCost: 
     return { value: n === null ? null : round2(n * (1 - m.discountPct / 100)), poa: false, raw };
   };
   const lines: VendorLine[] = [];
-  const seen = new Set<string>();
   const demo: string[] = [];
   for (const r of t.rows) {
     const code = cell(r, m.code);
@@ -225,8 +224,7 @@ export function applyMapping(t: VendorTable, m: ColumnMapping, opts: { ownCost: 
     const std = price(r, m.cost);
     if (std.poa) flags.push("Price on request");
     else if (std.value === null) flags.push(std.raw ? `Not a price: "${std.raw}"` : "No price");
-    if (seen.has(codeKey(code))) flags.push("Code repeated in the file");
-    seen.add(codeKey(code));
+    // Repeated codes are flagged by the review table, which knows which copies are still kept.
     const entityCosts: Record<string, number | null> = {};
     for (const e of opts.ownCost) {
       const p = price(r, m.entityCost[e] ?? null);
