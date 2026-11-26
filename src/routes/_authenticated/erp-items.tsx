@@ -6,6 +6,7 @@ import { useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   Download,
@@ -37,6 +38,25 @@ import { wizardOptions } from "@/lib/v3/wizard.functions";
 import { itemsBrowse, submitStatusChange } from "@/lib/v3/status.functions";
 import { REVIEW_DAYS, earliestNeededBy, fmtDay, isoDate, today } from "@/lib/nmk/dates";
 import { cn } from "@/lib/utils";
+import {
+  groupItems,
+  itemRole,
+  productFamily,
+  ROLE_LABEL,
+  ROLE_ORDER,
+  type ItemRole,
+} from "@/lib/nmk/productGroups";
+
+type Entry =
+  | {
+      kind: "head";
+      key: string;
+      name: string;
+      counts: Record<ItemRole, number>;
+      keys: string[];
+      more: boolean;
+    }
+  | { kind: "item"; i: Item; role: ItemRole };
 
 export const Route = createFileRoute("/_authenticated/erp-items")({
   head: () =>
@@ -117,9 +137,52 @@ function Page() {
   const nActive = base.filter((i) => stateOf(i) === 0).length;
   const shown =
     status === "all" ? base : base.filter((i) => stateOf(i) === (status === "active" ? 0 : 1));
-  const pages = Math.max(1, Math.ceil(shown.length / size));
+  // Grouped view: product families (device, its accessories, cables and plans together), page by page.
+  const [grouped, setGrouped] = useState(true);
+  const [closed, setClosed] = useState<Set<string>>(new Set());
+  const pageList2 = useMemo<Entry[][]>(() => {
+    if (!grouped) {
+      const out: Entry[][] = [];
+      for (let a = 0; a < shown.length; a += size)
+        out.push(shown.slice(a, a + size).map((i) => ({ kind: "item", i, role: "product" })));
+      return out.length ? out : [[]];
+    }
+    const out: Entry[][] = [];
+    let pageE: Entry[] = [];
+    let n = 0;
+    for (const g of groupItems(brand, shown)) {
+      const head = {
+        kind: "head" as const,
+        key: g.key,
+        name: g.name,
+        counts: g.counts,
+        keys: g.items.filter((i) => i.change?.state !== "pending").map(keyOf),
+      };
+      if (n >= size) {
+        out.push(pageE);
+        pageE = [];
+        n = 0;
+      }
+      pageE.push({ ...head, more: false });
+      if (closed.has(g.key)) continue;
+      for (const it of g.items) {
+        if (n >= size) {
+          out.push(pageE);
+          pageE = [{ ...head, more: true }];
+          n = 0;
+        }
+        pageE.push({ kind: "item", i: it, role: it.role });
+        n++;
+      }
+    }
+    out.push(pageE);
+    return out;
+  }, [grouped, shown, size, brand, closed]);
+  const pages = pageList2.length;
   const cur = Math.min(page, pages - 1);
-  const rows = shown.slice(cur * size, cur * size + size);
+  const entries = pageList2[cur] ?? [];
+  const rows = entries.flatMap((e) => (e.kind === "item" ? [e.i] : []));
+  const nCols = 10 + (entity === "all" ? 1 : 0);
   const families = useMemo(
     () => [...new Set(items.map((i) => i.family).filter((f): f is string => !!f))].sort(),
     [items],
@@ -192,6 +255,8 @@ function Page() {
         "Item Code": i.itemCode,
         Description: i.description,
         "Sub Activity": i.subActivity,
+        "Product family": productFamily(brand, i.itemCode) ?? "",
+        Type: ROLE_LABEL[itemRole(i)],
         Entity: i.entityCode,
         Status: stateOf(i) === 1 ? "Inactive" : "Active",
         Web: i.web === 1 ? "Shown" : "Hidden",
@@ -390,6 +455,19 @@ function Page() {
             />
             <span className="ml-auto flex flex-wrap items-center gap-4">
               <label
+                className="flex items-center gap-2 text-sm font-semibold"
+                title="Puts each product with its accessories, cables and subscriptions"
+              >
+                <Switch
+                  checked={grouped}
+                  onCheckedChange={(v) => {
+                    setGrouped(v);
+                    reset();
+                  }}
+                />
+                Group by product family
+              </label>
+              <label
                 className={cn(
                   "flex items-center gap-2 text-sm font-semibold",
                   !nDemo && "opacity-50",
@@ -517,26 +595,52 @@ function Page() {
                   </tr>
                 </thead>
                 <tbody>
-                  {rows.map((i) => (
-                    <Row
-                      key={keyOf(i)}
-                      i={i}
-                      picked={picked.has(keyOf(i))}
-                      setPicked={setPicked}
-                      state={stateOf(i)}
-                      mine={moves.has(keyOf(i)) && moves.get(keyOf(i)) !== i.inactive}
-                      cats={cats}
-                      showEntity={entity === "all"}
-                      showRetailCur={!retailCur}
-                      undo={() =>
-                        setMoves((m) => {
-                          const n = new Map(m);
-                          n.delete(keyOf(i));
-                          return n;
-                        })
-                      }
-                    />
-                  ))}
+                  {entries.map((e) =>
+                    e.kind === "head" ? (
+                      <GroupHead
+                        key={`h|${e.key}|${e.more ? 1 : 0}`}
+                        e={e}
+                        cols={nCols}
+                        open={!closed.has(e.key)}
+                        toggle={() =>
+                          setClosed((c) => {
+                            const n = new Set(c);
+                            if (n.has(e.key)) n.delete(e.key);
+                            else n.add(e.key);
+                            return n;
+                          })
+                        }
+                        allPicked={e.keys.length > 0 && e.keys.every((k) => picked.has(k))}
+                        pick={(v) =>
+                          setPicked((p) => {
+                            const n = new Set(p);
+                            e.keys.forEach((k) => (v ? n.add(k) : n.delete(k)));
+                            return n;
+                          })
+                        }
+                      />
+                    ) : (
+                      <Row
+                        key={keyOf(e.i)}
+                        role={grouped ? e.role : null}
+                        i={e.i}
+                        picked={picked.has(keyOf(e.i))}
+                        setPicked={setPicked}
+                        state={stateOf(e.i)}
+                        mine={moves.has(keyOf(e.i)) && moves.get(keyOf(e.i)) !== e.i.inactive}
+                        cats={cats}
+                        showEntity={entity === "all"}
+                        showRetailCur={!retailCur}
+                        undo={() =>
+                          setMoves((m) => {
+                            const n = new Map(m);
+                            n.delete(keyOf(e.i));
+                            return n;
+                          })
+                        }
+                      />
+                    ),
+                  )}
                 </tbody>
               </table>
               {!rows.length && (
@@ -713,14 +817,77 @@ function Page() {
   );
 }
 
-/** Whole prices without decimals, others with two (1,250 and 1,249.50). */
+/** Prices always with two decimals (2,544.00). */
 const fmtPrice = (n: number | null | undefined) =>
   n === null || n === undefined
     ? ""
-    : n.toLocaleString(undefined, {
-        minimumFractionDigits: Number.isInteger(n) ? 0 : 2,
-        maximumFractionDigits: 2,
-      });
+    : n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+const ROLE_SHORT: Record<ItemRole, string> = {
+  product: "Product",
+  accessory: "Accessory",
+  cable: "Cable / power",
+  subscription: "Subscription",
+};
+const ROLE_CHIP: Record<ItemRole, string> = {
+  product: "bg-[#EEF0FF] text-[#3730A3]",
+  accessory: "bg-[#E6FAF9] text-[#0F766E]",
+  cable: "bg-amber-50 text-amber-700",
+  subscription: "bg-violet-50 text-violet-700",
+};
+
+/** A product family header: name, what's in it, open/close, and tick the whole family. */
+function GroupHead({
+  e,
+  cols,
+  open,
+  toggle,
+  allPicked,
+  pick,
+}: {
+  e: Extract<Entry, { kind: "head" }>;
+  cols: number;
+  open: boolean;
+  toggle: () => void;
+  allPicked: boolean;
+  pick: (v: boolean) => void;
+}) {
+  return (
+    <tr className="border-t bg-gradient-to-r from-[#F3F4FF] to-transparent">
+      <td className="px-3.5 py-2.5">
+        <Checkbox
+          aria-label={`Select every item in ${e.name}`}
+          checked={allPicked}
+          disabled={!e.keys.length}
+          onCheckedChange={(v) => pick(v === true)}
+        />
+      </td>
+      <td colSpan={cols - 1} className="px-2 py-2.5">
+        <button
+          type="button"
+          onClick={toggle}
+          className="flex flex-wrap items-center gap-2 text-left"
+        >
+          <ChevronDown
+            className={cn("size-4 text-[#3730A3] transition-transform", !open && "-rotate-90")}
+          />
+          <span className="text-[15px] font-extrabold text-[#0B1460]">
+            {e.name}
+            {e.more && <span className="font-semibold text-muted-foreground"> (continued)</span>}
+          </span>
+          {ROLE_ORDER.filter((r) => e.counts[r] > 0).map((r) => (
+            <span
+              key={r}
+              className={cn("rounded-full px-2 py-0.5 text-[11px] font-bold", ROLE_CHIP[r])}
+            >
+              {e.counts[r]} {ROLE_LABEL[r].toLowerCase()}
+            </span>
+          ))}
+        </button>
+      </td>
+    </tr>
+  );
+}
 
 /** Page buttons: first, last, and two either side of the current page. */
 function pageList(cur: number, pages: number): (number | null)[] {
@@ -802,6 +969,7 @@ const Shown = ({ on }: { on: number | null }) => (
 );
 
 function Row({
+  role,
   i,
   picked,
   setPicked,
@@ -812,6 +980,7 @@ function Row({
   showRetailCur,
   undo,
 }: {
+  role: ItemRole | null;
   i: Item;
   picked: boolean;
   setPicked: (f: (s: Set<string>) => Set<string>) => void;
@@ -848,7 +1017,19 @@ function Row({
           }
         />
       </td>
-      <td className="whitespace-nowrap px-2 py-2.5 font-bold">{i.itemCode}</td>
+      <td className={cn("whitespace-nowrap px-2 py-2.5 font-bold", role && "pl-6")}>
+        {i.itemCode}
+        {role && role !== "product" && (
+          <span
+            className={cn(
+              "ml-2 rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide",
+              ROLE_CHIP[role],
+            )}
+          >
+            {ROLE_SHORT[role]}
+          </span>
+        )}
+      </td>
       <td
         className={cn(
           "px-2 py-2.5 text-muted-foreground",
