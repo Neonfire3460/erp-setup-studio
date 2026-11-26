@@ -9,6 +9,7 @@ import { Switch } from "@/components/ui/switch";
 import { Card, Label11, errText, fmtDate } from "@/components/v3/ui";
 import { defaultBrandLogo, fileToLogo } from "@/lib/v3/logo";
 import { learnOrder, type PdfTextItem } from "@/lib/nmk/pdfOrder";
+import { pdfStyleFor, rgbHex, type PdfStyleOverride } from "@/lib/nmk/pricelistPdf";
 import { brandErpCodes } from "@/lib/v3/erp.functions";
 import { cn } from "@/lib/utils";
 import { ListEditor, loadAll, looseDb, type Row } from "./ListEditor";
@@ -562,6 +563,8 @@ function BrandPanel({
         />
       </Card>
 
+      <PdfLook brand={name} />
+
       <Card className="space-y-3">
         <Label11>PDF item order</Label11>
         <p className="text-sm text-muted-foreground">
@@ -626,5 +629,107 @@ function BrandPanel({
         )}
       </Card>
     </div>
+  );
+}
+
+/** The PDF's table colours and column titles for one brand (app_settings "pdf_styles"). */
+function PdfLook({ brand }: { brand: string }) {
+  const key = brand.trim().toUpperCase();
+  const [all, setAll] = useState<Record<string, PdfStyleOverride>>({});
+  const [o, setO] = useState<PdfStyleOverride>({});
+  const [saving, setSaving] = useState(false);
+  useEffect(() => {
+    void looseDb
+      .from("app_settings")
+      .select("value")
+      .eq("key", "pdf_styles")
+      .maybeSingle()
+      .then((r: { data: { value: Record<string, PdfStyleOverride> } | null }) => {
+        const v = r.data?.value ?? {};
+        setAll(v);
+        setO(v[key] ?? {});
+      });
+  }, [key]);
+  const st = pdfStyleFor(brand, o);
+  const white = st.headText[0] === 255;
+  async function save(next: PdfStyleOverride | null) {
+    setSaving(true);
+    try {
+      const v = { ...all };
+      if (next) v[key] = next;
+      else delete v[key];
+      const r = await looseDb.from("app_settings").upsert({ key: "pdf_styles", value: v });
+      if (r.error) throw new Error(r.error.message);
+      setAll(v);
+      setO(next ?? {});
+      toast.success(next ? "PDF look saved" : "Back to the brand's standard look");
+    } catch (e) {
+      toast.error(errText(e));
+    } finally {
+      setSaving(false);
+    }
+  }
+  return (
+    <Card className="space-y-3">
+      <Label11>PDF look</Label11>
+      <p className="text-sm text-muted-foreground">
+        The table header colour and column titles of this brand's PDF pricelist.
+      </p>
+      <div className="flex flex-wrap items-end gap-4">
+        <label className="space-y-1 text-sm font-semibold">
+          <span className="block">Header colour</span>
+          <input
+            type="color"
+            className="h-10 w-16 cursor-pointer rounded border"
+            value={rgbHex(st.headFill)}
+            onChange={(e) => setO({ ...o, headColor: e.target.value })}
+          />
+        </label>
+        <label className="flex h-10 items-center gap-2 text-sm">
+          <Switch checked={white} onCheckedChange={(v) => setO({ ...o, headTextWhite: v })} />
+          White header text
+        </label>
+        {st.columns.map((c, i) => (
+          <label key={i} className="space-y-1 text-sm font-semibold">
+            <span className="block">Column {i + 1}</span>
+            <Input
+              className="h-10 w-40"
+              value={c}
+              onChange={(e) => {
+                const cols = [...st.columns] as [string, string, string];
+                cols[i] = e.target.value;
+                setO({ ...o, columns: cols });
+              }}
+            />
+          </label>
+        ))}
+      </div>
+      <div className="overflow-hidden rounded border text-[12px]">
+        <div
+          className="grid grid-cols-[1fr_2fr_1fr] text-center font-bold"
+          style={{ background: rgbHex(st.headFill), color: rgbHex(st.headText) }}
+        >
+          {st.columns.map((c, i) => (
+            <span key={i} className="px-2 py-1">
+              {c}
+            </span>
+          ))}
+        </div>
+        <div className="grid grid-cols-[1fr_2fr_1fr] border-t">
+          <span className="px-2 py-1">CODE-123</span>
+          <span className="px-2 py-1">Example item</span>
+          <span className="px-2 py-1 text-right">1,234.00</span>
+        </div>
+      </div>
+      <div className="flex gap-2">
+        <Button size="sm" disabled={saving} onClick={() => void save(o)}>
+          <Save />
+          Save PDF look
+        </Button>
+        <Button size="sm" variant="outline" disabled={saving} onClick={() => void save(null)}>
+          Use the standard look
+        </Button>
+      </div>
+    </Card>
   );
 }

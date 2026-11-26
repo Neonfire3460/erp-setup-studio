@@ -59,6 +59,16 @@ export const pdfItems = createServerFn({ method: "POST" })
     if (!e) throw new Error("Unknown entity");
     if (!e.pdfAllowed) throw new Error(`${e.name} has no PDF template yet`);
     const master = core.masterOf(entities, e.region);
+    const styleOverride = await db
+      .from("app_settings")
+      .select("value")
+      .eq("key", "pdf_styles")
+      .maybeSingle()
+      .then(
+        (r) =>
+          ((r.data?.value ?? {}) as Record<string, unknown>)[data.brand.trim().toUpperCase()] ??
+          null,
+      );
     const [own, masterItems, approved, order, brandRow] = await Promise.all([
       core.loadBrandErp(db, e.code, data.brand),
       e.code === master ? Promise.resolve([]) : core.loadBrandErp(db, master, data.brand),
@@ -185,6 +195,7 @@ export const pdfItems = createServerFn({ method: "POST" })
       })),
       inactiveLeftOut: items.length - active.length,
       hasOrder: order.length > 0,
+      styleOverride: styleOverride as import("@/lib/nmk/pricelistPdf").PdfStyleOverride | null,
       headings: headingsBefore(
         order,
         placed.map((p) => p.itemCode),

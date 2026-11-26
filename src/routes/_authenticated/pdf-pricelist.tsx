@@ -21,7 +21,7 @@ import {
 } from "@/components/v3/ui";
 import { headFor, downloadBlob } from "@/lib/v3/page";
 import { defaultBrandLogo, defaultEntityLogo, loadLogo } from "@/lib/v3/logo";
-import { buildPricelistPdf, pricelistFileName } from "@/lib/nmk/pricelistPdf";
+import { buildPricelistPdf, pdfStyleFor, pricelistFileName } from "@/lib/nmk/pricelistPdf";
 import { codeKey } from "@/lib/nmk/util";
 import { pdfItems, pdfOptions, recordPdf } from "@/lib/v3/pdf.functions";
 import { cn } from "@/lib/utils";
@@ -105,6 +105,7 @@ function Page() {
         noticeLine: data.noticeLine,
         confidentialLine: data.confidentialLine,
         legalName: data.entity.legalName,
+        style: pdfStyleFor(data.brand.name, data.styleOverride),
         brandLogo,
         entityLogo,
         items: printable.flatMap((r) => {
