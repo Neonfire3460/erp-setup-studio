@@ -337,9 +337,27 @@ export function readErpExport(
   const noCur = res.items.filter((i) => !i.costCurrency).length;
   if (noCur && I.cost >= 0)
     res.notes.push(`${noCur} items have no cost currency: the Price check cannot compare them.`);
-  res.brands = [...brandCount]
-    .map(([brand, c]) => ({ brand, ...c }))
-    .sort((a, b) => b.items - a.items);
+  // One brand can be typed in different cases in the ERP ("Neat" and "NEAT"). Keep the most used spelling.
+  const spelling = new Map<string, string>();
+  for (const [brand, c] of [...brandCount].sort((x, y) => y[1].items - x[1].items)) {
+    const k = brand.toUpperCase();
+    if (!spelling.has(k)) spelling.set(k, brand);
+  }
+  const merged = new Map<string, { items: number; active: number }>();
+  for (const [brand, c] of brandCount) {
+    const name = spelling.get(brand.toUpperCase())!;
+    const m = merged.get(name) ?? { items: 0, active: 0 };
+    m.items += c.items;
+    m.active += c.active;
+    merged.set(name, m);
+  }
+  const renamed = res.items.filter((i) => spelling.get(i.brand.toUpperCase()) !== i.brand);
+  for (const i of renamed) i.brand = spelling.get(i.brand.toUpperCase())!;
+  if (renamed.length)
+    res.notes.push(
+      `${renamed.length} items had the brand in a different case and were saved as ${[...new Set(renamed.map((i) => i.brand))].join(", ")}.`,
+    );
+  res.brands = [...merged].map(([brand, c]) => ({ brand, ...c })).sort((a, b) => b.items - a.items);
   if (!res.items.length) res.problems.push("No item rows found.");
   res.ok = res.problems.length === 0;
   return res;

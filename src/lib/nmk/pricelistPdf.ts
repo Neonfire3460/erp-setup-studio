@@ -13,6 +13,8 @@ export interface PricelistItem {
   itemCode: string;
   description: string;
   retail: number;
+  /** A section heading row ("Neat Accessories") instead of an item. */
+  heading?: string;
 }
 export interface PricelistInput {
   title: string; // "Q4 2026 Price List"
@@ -101,7 +103,22 @@ export function buildPricelistPdf(jsPDF: any, autoTable: any, input: PricelistIn
       right: pageW - L.table.x - L.table.widths.reduce((a, b) => a + b, 0),
     },
     head: [["Item Code", "Description", "List Price"]],
-    body: input.items.map((i) => [i.itemCode, i.description, money(i.retail)]),
+    body: input.items.map((i) =>
+      i.heading
+        ? [
+            {
+              content: i.heading,
+              colSpan: 3,
+              styles: {
+                fontStyle: "bold",
+                halign: "center",
+                fillColor: [235, 235, 235],
+                minCellHeight: L.table.head + 4,
+              },
+            },
+          ]
+        : [i.itemCode, i.description, money(i.retail)],
+    ),
     theme: "grid",
     showHead: "everyPage",
     styles: {
@@ -135,7 +152,12 @@ export function buildPricelistPdf(jsPDF: any, autoTable: any, input: PricelistIn
       column: { index: number };
       cell: { text: string[]; styles: { fontSize: number; cellPadding: unknown } };
     }) => {
-      if (d.section !== "body" || d.column.index !== 0) return;
+      if (
+        d.section !== "body" ||
+        d.column.index !== 0 ||
+        (d.cell as { colSpan?: number }).colSpan! > 1
+      )
+        return;
       const text = d.cell.text.join("");
       doc.setFontSize(8.5);
       const room = L.table.widths[0]! - 6.5;

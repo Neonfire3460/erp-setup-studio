@@ -22,6 +22,7 @@ import {
 import { headFor, downloadBlob } from "@/lib/v3/page";
 import { defaultBrandLogo, defaultEntityLogo, loadLogo } from "@/lib/v3/logo";
 import { buildPricelistPdf, pricelistFileName } from "@/lib/nmk/pricelistPdf";
+import { codeKey } from "@/lib/nmk/util";
 import { pdfItems, pdfOptions, recordPdf } from "@/lib/v3/pdf.functions";
 import { cn } from "@/lib/utils";
 
@@ -106,9 +107,18 @@ function Page() {
         legalName: data.entity.legalName,
         brandLogo,
         entityLogo,
-        items: printable.map((r) => {
+        items: printable.flatMap((r) => {
           const f = fixed(r);
-          return { itemCode: r.itemCode, description: f.desc, retail: Number(f.retail) };
+          const heads = (data.headings[codeKey(r.itemCode)] ?? []).map((h) => ({
+            itemCode: "",
+            description: "",
+            retail: 0,
+            heading: h,
+          }));
+          return [
+            ...heads,
+            { itemCode: r.itemCode, description: f.desc, retail: Number(f.retail) },
+          ];
         }),
       });
       downloadBlob(

@@ -49,7 +49,7 @@ export const pdfItems = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const core = await import("@/server/v3/core.server");
-    const { placeItems } = await import("@/lib/nmk/pdfOrder");
+    const { headingsBefore, placeItems } = await import("@/lib/nmk/pdfOrder");
     const { pricelistChecks, pricelistTitle } = await import("@/lib/nmk/pricelistPdf");
     const { codeKey, isDemoCode } = await import("@/lib/nmk/util");
     const db = await core.adminDb();
@@ -185,6 +185,10 @@ export const pdfItems = createServerFn({ method: "POST" })
       })),
       inactiveLeftOut: items.length - active.length,
       hasOrder: order.length > 0,
+      headings: headingsBefore(
+        order,
+        placed.map((p) => p.itemCode),
+      ),
       checks: pricelistChecks(placed),
     };
   });

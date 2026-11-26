@@ -12,6 +12,13 @@ export interface PdfTextItem {
   font?: string;
 }
 
+/** Section headings ("Neat Accessories") are saved in the order list with this prefix. */
+export const SECTION = "## ";
+export const isSection = (s: string) => s.startsWith(SECTION);
+
+const HEAD_WORDS = /^(product code|item code|code|descriptions?|list price|price|qty)$/i;
+const PAGE_NO = /^page \d+( of \d+)?$/i;
+
 const looksLikeCode = (s: string) =>
   /^[A-Z0-9][A-Z0-9._/+-]{2,39}$/i.test(s) && /\d|-/.test(s) && !/^\d+([.,]\d+)*$/.test(s);
 
@@ -47,21 +54,76 @@ export function learnOrder(items: PdfTextItem[], knownCodes: string[]) {
             !known.has(codeKey(t.str)) &&
             looksLikeCode(t.str),
         );
+  // Section headings: a line alone on its row (nothing else within 4 pt up or down), inside the table
+  // (below the column headings, at most 40 pt under the page's last code), not in the code column.
+  const codeRows = [...visible, ...unknown];
+  const sections: typeof all = [];
+  if (colX !== null)
+    for (const p of pages) {
+      // Headings are often in a bold font, so look at every text item, not only the code font.
+      const onPage = all.filter((t) => t.page === p);
+      const codesHere = codeRows.filter((c) => c.page === p);
+      if (!codesHere.length) continue;
+      const heads = onPage.filter((t) => HEAD_WORDS.test(t.str));
+      const top = heads.length
+        ? Math.min(...heads.map((h) => h.y))
+        : Math.max(...codesHere.map((c) => c.y)) + 1;
+      const bottom = Math.min(...codesHere.map((c) => c.y)) - 40;
+      // The description column starts where most text on the code rows starts (after the code column).
+      const onCodeRows = onPage.filter(
+        (t) => Math.abs(t.x - colX) > 6 && codesHere.some((c) => Math.abs(c.y - t.y) <= 2),
+      );
+      const xCount = new Map<number, number>();
+      for (const t of onCodeRows)
+        xCount.set(Math.round(t.x), (xCount.get(Math.round(t.x)) ?? 0) + 1);
+      const descX = [...xCount].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
+      const bodyFont = codesHere.at(-1)?.font;
+      for (const t of onPage) {
+        if (t.y >= top - 2 || t.y < bottom) continue;
+        if (
+          Math.abs(t.x - colX) <= 6 ||
+          HEAD_WORDS.test(t.str) ||
+          PAGE_NO.test(t.str) ||
+          /^[\d.,\s]+$/.test(t.str)
+        )
+          continue;
+        if (t.str.length < 3 || t.str.length > 60) continue;
+        // Wrapped description lines start at the description column in the body font: not headings.
+        if (descX !== null && Math.abs(t.x - descX) <= 6) continue;
+        if (bodyFont && t.font === bodyFont) continue;
+        const alone = onPage.every((o) => o === t || Math.abs(o.y - t.y) > 4);
+        if (alone) sections.push(t);
+      }
+    }
   const rows = [
-    ...visible.map((h) => ({ ...h, known: true })),
-    ...unknown.map((u) => ({ ...u, known: false })),
+    ...visible.map((h) => ({ ...h, kind: "known" as const })),
+    ...unknown.map((u) => ({ ...u, kind: "unknown" as const })),
+    ...sections.map((u) => ({ ...u, kind: "section" as const })),
   ].sort((a, b) => a.page - b.page || b.y - a.y || a.x - b.x);
   const order: string[] = [];
   const notInErp: string[] = [];
   const seen = new Set<string>();
   for (const h of rows) {
+    if (h.kind === "section") {
+      // A heading repeated at the top of the next page is one heading.
+      if (order.at(-1) !== SECTION + h.str) order.push(SECTION + h.str);
+      continue;
+    }
     const k = codeKey(h.str);
     if (seen.has(k)) continue;
     seen.add(k);
-    order.push(h.known ? known.get(k)! : h.str);
-    if (!h.known) notInErp.push(h.str);
+    order.push(h.kind === "known" ? known.get(k)! : h.str);
+    if (h.kind === "unknown") notInErp.push(h.str);
   }
-  return { order, notInErp, hiddenIgnored: hits.length - visible.length, pages: pages.length };
+  // A heading with no code after it is not a heading.
+  while (order.length && isSection(order.at(-1)!)) order.pop();
+  return {
+    order,
+    notInErp,
+    hiddenIgnored: hits.length - visible.length,
+    pages: pages.length,
+    sections: order.filter(isSection).map((x) => x.slice(SECTION.length)),
+  };
 }
 
 export interface PlaceInput {
@@ -88,7 +150,7 @@ export function placeItems<T extends PlaceInput>(
   order: string[],
   items: T[],
 ): (T & { placedBy: Placement })[] {
-  const idx = new Map(order.map((c, i) => [codeKey(c), i]));
+  const idx = new Map(order.filter((c) => !isSection(c)).map((c, i) => [codeKey(c), i]));
   const inOrder = items
     .filter((i) => idx.has(codeKey(i.itemCode)))
     .sort((a, b) => idx.get(codeKey(a.itemCode))! - idx.get(codeKey(b.itemCode))!);
@@ -136,4 +198,27 @@ export function placeItems<T extends PlaceInput>(
     result.splice(at, 0, { ...n, placedBy });
   }
   return [...result, ...atEnd];
+}
+
+/**
+ * Which headings print before which item. Each heading goes before the first item of the order after it
+ * that is in the PDF (inactive items are left out, so the next one present takes the heading).
+ * Returns item code key -> headings.
+ */
+export function headingsBefore(order: string[], codes: string[]): Record<string, string[]> {
+  const present = new Set(codes.map(codeKey));
+  const out: Record<string, string[]> = {};
+  let waiting: string[] = [];
+  for (const c of order) {
+    if (isSection(c)) {
+      waiting.push(c.slice(SECTION.length));
+      continue;
+    }
+    const k = codeKey(c);
+    if (waiting.length && present.has(k)) {
+      out[k] = [...(out[k] ?? []), ...waiting];
+      waiting = [];
+    }
+  }
+  return out;
 }

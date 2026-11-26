@@ -311,7 +311,9 @@ function BrandPanel({
     );
     if (r.error) toast.error(r.error.message);
     else {
-      toast.success(`Saved the order of ${learned.order.length} codes`);
+      toast.success(
+        `Saved the order of ${learned.order.length - learned.sections.length} codes${learned.sections.length ? ` and ${learned.sections.length} headings` : ""}`,
+      );
       setLearned(null);
       void loadExtra();
     }
@@ -590,7 +592,16 @@ function BrandPanel({
         {learned && (
           <div className="space-y-2 rounded-lg bg-accent/60 p-3 text-sm">
             <p>
-              <b>{learned.order.length} codes</b> found on {learned.pages} pages
+              <b>{learned.order.length - learned.sections.length} codes</b> found on {learned.pages}{" "}
+              pages
+              {learned.sections.length > 0 && (
+                <>
+                  {" "}
+                  and <b>{learned.sections.length} section headings</b> (
+                  {learned.sections.slice(0, 4).join(", ")}
+                  {learned.sections.length > 4 ? ", ..." : ""})
+                </>
+              )}
               {learned.hiddenIgnored
                 ? ` (${learned.hiddenIgnored} hidden old-text codes ignored)`
                 : ""}
